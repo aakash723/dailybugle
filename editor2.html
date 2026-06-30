@@ -1845,6 +1845,15 @@
             if (saveBtn) {
                 saveBtn.addEventListener('click', function() {
                     saveLayout();
+                    // Also download as JSON
+                    var data = JSON.parse(localStorage.getItem('editor_layout') || '{"elements":[]}');
+                    var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                    var url = URL.createObjectURL(blob);
+                    var a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'layout.json';
+                    a.click();
+                    URL.revokeObjectURL(url);
                     saveBtn.textContent = '✓ Saved';
                     setTimeout(function() { saveBtn.textContent = '💾 Save'; }, 1500);
                 });
