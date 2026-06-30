@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Layout Editor</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; background: #1a1a2e; color: #ccc; }
+#app { display: flex; height: 100%; }
+.resize-handle, .resize-handle-r {
+    width: 4px; cursor: col-resize; background: rgba(255,255,255,0.04); flex-shrink: 0; transition: background 0.15s;
+}
+.resize-handle:hover, .resize-handle.active, .resize-handle-r:hover, .resize-handle-r.active { background: #e94560; }
+
+#toolbar {
+    width: 200px; min-width: 60px; background: #16213e; padding: 16px; display: flex;
+    flex-direction: column; gap: 8px; flex-shrink: 0; overflow: hidden;
+}
+#toolbar h2 { font-size: 14px; color: #e94560; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+#toolbar button {
+    width: 100%; padding: 10px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
+    background: rgba(255,255,255,0.04); color: #ccc; cursor: pointer; font-size: 13px; text-align: left; transition: 0.15s;
+}
+#toolbar button:hover { background: rgba(233,69,96,0.15); border-color: #e94560; color: #fff; }
+#toolbar .sep { border-top: 1px solid rgba(255,255,255,0.06); margin: 8px 0; }
+.tool-label { font-size: 11px; color: #667; text-transform: uppercase; letter-spacing: 1px; margin: 8px 0 4px; }
+#layerList { display: flex; flex-direction: column; gap: 2px; flex: 1; overflow-y: auto; min-height: 0; }
+.layer-item {
+    padding: 6px 8px; border-radius: 4px; font-size: 12px; cursor: pointer;
+    display: flex; align-items: center; gap: 6px;
+}
+.layer-item:hover { background: rgba(255,255,255,0.06); }
+.layer-item.active { background: rgba(233,69,96,0.2); color: #e94560; }
+.layer-item .del-layer { margin-left: auto; cursor: pointer; color: #e94560; font-size: 14px; }
+
+#canvasWrap { flex: 1; position: relative; overflow: auto; background: #0f0f23; display: flex; justify-content: center; align-items: center; }
+#canvasWrap::-webkit-scrollbar { width: 6px; height: 6px; }
+#canvasWrap::-webkit-scrollbar-track { background: #1a1a2e; }
+#canvasWrap::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+#canvas {
+    flex-shrink: 0; position: relative; width: 1280px; height: 800px;
+    box-shadow: 0 0 60px rgba(0,0,0,0.5); overflow: hidden; background: #fff;
+}
+#canvas iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; pointer-events: none; }
+#canvas .el {
+    position: absolute; cursor: move; min-width: 30px; min-height: 30px;
+    border: 2px solid transparent; user-select: none; z-index: 10;
+}
+#canvas .el:hover { border-color: rgba(233,69,96,0.3); }
+#canvas .el.selected { border-color: #e94560; z-index: 100; }
+#canvas .el img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: block; }
+#canvas .el .text-content {
+    width: 100%; height: 100%; padding: 4px; outline: none; cursor: text;
+    font-family: 'Comic Sans MS', 'Comic Sans', cursive; font-size: 14px; color: #222;
+    word-wrap: break-word; overflow: hidden; line-height: 1.4; border-radius: 2px;
+}
+#canvas .el .text-content:focus { cursor: text; }
+.res-handle {
+    position: absolute; width: 10px; height: 10px; background: #e94560;
+    border: 2px solid #fff; border-radius: 50%; z-index: 20;
+}
+.rotate-handle {
+    position: absolute; top: -28px; left: 50%; margin-left: -8px;
+    width: 16px; height: 16px; background: #4a9eff;
+    border: 2px solid #fff; border-radius: 50%; z-index: 20; cursor: grab;
+}
+.rotate-handle:active { cursor: grabbing; }
+.res-handle.se { bottom: -6px; right: -6px; cursor: se-resize; }
+.res-handle.sw { bottom: -6px; left: -6px; cursor: sw-resize; }
+.res-handle.ne { top: -6px; right: -6px; cursor: ne-resize; }
+.res-handle.nw { top: -6px; left: -6px; cursor: nw-resize; }
+
+#assetPanel {
+    width: 220px; min-width: 60px; background: #16213e; padding: 16px;
+    display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden;
+}
+#assetPanel h2 { font-size: 14px; color: #e94560; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+#assetGrid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px; overflow-y: auto; flex: 1; min-height: 0;
+}
+.asset-item {
+    background: rgba(255,255,255,0.04); border-radius: 6px; padding: 4px;
+    cursor: grab; text-align: center; font-size: 10px; color: #667;
+    border: 1px solid transparent; transition: 0.15s;
+}
+.asset-item:hover { border-color: #e94560; background: rgba(233,69,96,0.1); }
+.asset-item img { width: 100%; height: 60px; object-fit: contain; display: block; pointer-events: none; }
+.asset-item .name { margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+#pasteOverlay {
+    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center;
+}
+#pasteOverlay.show { display: flex; }
+#pasteBox {
+    background: #1a1a2e; border-radius: 12px; padding: 24px; width: 500px; max-width: 90vw;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+#pasteBox h3 { color: #e94560; margin-bottom: 12px; }
+#pasteBox textarea {
+    width: 100%; height: 150px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px; color: #ccc; padding: 12px; font-size: 13px; resize: vertical; outline: none; font-family: inherit;
+}
+#pasteBox textarea:focus { border-color: #e94560; }
+#pasteBox .paste-actions { display: flex; gap: 8px; margin-top: 12px; }
+#pasteBox .paste-actions button {
+    padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px;
+}
+#pasteBox .paste-actions .primary { background: #e94560; color: #fff; }
+#pasteBox .paste-actions .secondary { background: rgba(255,255,255,0.06); color: #ccc; }
+</style>
+</head>
+<body>
+<div id="app">
+    <div id="toolbar">
+        <h2>Editor</h2>
+        <button onclick="addTextEl()">+ Add Text Box</button>
+        <button onclick="showPasteDialog()">📋 Paste</button>
+        <div class="sep"></div>
+        <button onclick="saveLayout()">💾 Save Layout</button>
+        <button onclick="exportCode()">📄 Export HTML</button>
+        <button onclick="clearCanvas()">🗑 Clear All</button>
+        <div class="sep"></div>
+        <div class="tool-label">Layers</div>
+        <div id="layerList"></div>
+    </div>
+    <div class="resize-handle" id="resizeLeft"></div>
+    <div id="canvasWrap">
+        <div id="canvas">
+            <iframe src="index.html?editor=1" id="pageFrame" onload="fixFrame()"></iframe>
+        </div>
+    </div>
+    <div class="resize-handle-r" id="resizeRight"></div>
+    <div id="assetPanel">
+        <h2>Assets</h2>
+        <div id="assetGrid"></div>
+    </div>
+</div>
+<div id="pasteOverlay" onclick="if(event.target===this)hidePasteDialog()">
+    <div id="pasteBox">
+        <h3>Paste Content</h3>
+        <textarea id="pasteTextarea" placeholder="Paste text or HTML here..."></textarea>
+        <div class="paste-actions">
+            <button class="primary" onclick="confirmPaste()">Add as Text</button>
+            <button class="secondary" onclick="hidePasteDialog()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ────────────────────────────────────────────── STATE
+let elements = [];
+let selectedId = null;
+let nextId = 1;
+let dragState = null;
+
+const CANVAS_W = 1280, CANVAS_H = 800;
+
+function scaleFactor() {
+    const c = document.getElementById('canvas');
+    const r = c.getBoundingClientRect();
+    return r.width / CANVAS_W;
+}
+
+// ────────────────────────────────────────────── ELEMENTS
+function createEl(type, x, y, w, h, opts) {
+    const id = nextId++;
+    const el = { id, type, x, y, w, h, rotation: 0, ...opts };
+    elements.push(el);
+    renderAll();
+    updateLayers();
+    selectEl(id);
+    return el;
+}
+
+function addTextEl() {
+    // Place it roughly center of visible canvas area
+    const el = createEl('text', 200, 150, 280, 80, { text: 'Edit me…', rotation: 0 });
+    // Scroll the canvas so user can see it
+    const wrap = document.getElementById('canvasWrap');
+    const div = document.getElementById('el-' + el.id);
+    if (div) div.scrollIntoView({ block: 'center' });
+}
+
+function addImageEl(src, name) {
+    createEl('image', 20, 20, 250, 250, { src, imgName: name });
+}
+
+// ────────────────────────────────────────────── RENDER
+function renderAll() {
+    const canvas = document.getElementById('canvas');
+    canvas.querySelectorAll('.el').forEach(el => el.remove());
+    elements.forEach(el => {
+        const div = document.createElement('div');
+        div.id = 'el-' + el.id;
+        div.className = 'el' + (selectedId === el.id ? ' selected' : '');
+        const rot = el.rotation ? `rotate(${el.rotation}deg)` : '';
+        div.style.cssText = `position:absolute;left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;cursor:move;border:2px solid transparent;user-select:none;z-index:${el.id};transform:${rot};`;
+        if (el.type === 'image') {
+            div.innerHTML = `<img src="${el.src}" draggable="false">`;
+        } else {
+            div.innerHTML = `<div class="text-content" spellcheck="false">${el.text || ''}</div>`;
+        }
+        // Handles for selected
+        if (selectedId === el.id) {
+            div.innerHTML +=
+                '<div class="rotate-handle" data-action="rotate"></div>' +
+                '<div class="res-handle nw" data-action="resize" data-dir="nw"></div>' +
+                '<div class="res-handle ne" data-action="resize" data-dir="ne"></div>' +
+                '<div class="res-handle sw" data-action="resize" data-dir="sw"></div>' +
+                '<div class="res-handle se" data-action="resize" data-dir="se"></div>';
+        }
+        div.addEventListener('mousedown', (e) => {
+            const action = e.target.dataset.action;
+            if (action === 'rotate') { e.stopPropagation(); startRotate(e, el.id); return; }
+            if (action === 'resize') { e.stopPropagation(); startResize(e, el.id, e.target.dataset.dir); return; }
+            startDrag(e, el.id);
+        });
+        div.addEventListener('dblclick', () => { if (el.type === 'text') editText(el.id); });
+        canvas.appendChild(div);
+    });
+    updateLayers();
+}
+
+// ────────────────────────────────────────────── SELECT
+function selectEl(id) {
+    selectedId = id;
+    renderAll();
+}
+
+// ────────────────────────────────────────────── DRAG
+function startDrag(e, id) {
+    if (e.button !== 0) return;
+    const el = elements.find(el => el.id === id);
+    if (!el) return;
+    if (selectedId !== id) { selectEl(id); return; }
+    const s = scaleFactor();
+    dragState = { id, ox: e.clientX, oy: e.clientY, ex: el.x, ey: el.y, scale: s, type: 'move' };
+    e.preventDefault();
+}
+
+function startResize(e, id, dir) {
+    const el = elements.find(el => el.id === id);
+    if (!el) return;
+    const s = scaleFactor();
+    dragState = { id, ox: e.clientX, oy: e.clientY, ex: el.x, ey: el.y, ew: el.w, eh: el.h, dir, scale: s, type: 'resize' };
+    e.preventDefault();
+}
+
+function startRotate(e, id) {
+    const el = elements.find(el => el.id === id);
+    if (!el) return;
+    const canvas = document.getElementById('canvas');
+    const r = canvas.getBoundingClientRect();
+    const s = scaleFactor();
+    const cx = (el.x + el.w / 2) * s + r.left;
+    const cy = (el.y + el.h / 2) * s + r.top;
+    dragState = { id, ox: e.clientX, oy: e.clientY, cx, cy, startAngle: el.rotation || 0, type: 'rotate' };
+    e.preventDefault();
+}
+
+document.addEventListener('mousemove', (e) => {
+    if (!dragState) return;
+    const el = elements.find(el => el.id === dragState.id);
+    if (!el) return;
+    if (dragState.type === 'move') {
+        const dx = (e.clientX - dragState.ox) / dragState.scale;
+        const dy = (e.clientY - dragState.oy) / dragState.scale;
+        el.x = Math.max(0, dragState.ex + dx);
+        el.y = Math.max(0, dragState.ey + dy);
+        updateEl(el);
+    } else if (dragState.type === 'resize') {
+        const dx = (e.clientX - dragState.ox) / dragState.scale;
+        const dy = (e.clientY - dragState.oy) / dragState.scale;
+        const d = dragState.dir;
+        if (d.includes('e')) el.w = Math.max(30, dragState.ew + dx);
+        if (d.includes('w')) { el.w = Math.max(30, dragState.ew - dx); el.x = dragState.ex + dx; }
+        if (d.includes('s')) el.h = Math.max(30, dragState.eh + dy);
+        if (d.includes('n')) { el.h = Math.max(30, dragState.eh - dy); el.y = dragState.ey + dy; }
+        updateEl(el);
+    } else if (dragState.type === 'rotate') {
+        const angle = Math.atan2(e.clientY - dragState.cy, e.clientX - dragState.cx) * 180 / Math.PI;
+        const startAngle = Math.atan2(dragState.oy - dragState.cy, dragState.ox - dragState.cx) * 180 / Math.PI;
+        el.rotation = (angle - startAngle + dragState.startAngle) % 360;
+        updateEl(el);
+    }
+});
+document.addEventListener('mouseup', () => { dragState = null; });
+
+function updateEl(el) {
+    const div = document.getElementById('el-' + el.id);
+    if (!div) return;
+    const rot = el.rotation ? `rotate(${el.rotation}deg)` : '';
+    div.style.cssText = `position:absolute;left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;cursor:move;border:2px solid transparent;user-select:none;z-index:${el.id};transform:${rot};`;
+}
+
+// ────────────────────────────────────────────── ASSETS
+async function loadAssets() {
+    try {
+        const r = await fetch('/');
+        const text = await r.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, 'text/html');
+        const links = doc.querySelectorAll('a');
+        const grid = document.getElementById('assetGrid');
+        grid.innerHTML = '';
+        let found = 0;
+        for (const link of links) {
+            const href = link.getAttribute('href');
+            if (href && /\.(png|jpg|jpeg|gif|svg|webp)$/i.test(href) && !href.includes('book-effect') && !href.includes('editor-')) {
+                found++;
+                const item = document.createElement('div');
+                item.className = 'asset-item';
+                item.draggable = true;
+                item.innerHTML = `<img src="${href}" loading="lazy"><div class="name">${href}</div>`;
+                item.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', href); });
+                item.addEventListener('dblclick', () => { addImageEl(href, href); });
+                grid.appendChild(item);
+            }
+        }
+        if (!found) grid.innerHTML = '<div style="grid-column:span 2;color:#667;font-size:12px;padding:20px;">No images found</div>';
+    } catch(e) {
+        document.getElementById('assetGrid').innerHTML = '<div style="grid-column:span 2;color:#e94560;font-size:12px;padding:20px;">Load error</div>';
+    }
+}
+
+// ────────────────────────────────────────────── DROP
+document.getElementById('canvas').addEventListener('drop', (e) => {
+    e.preventDefault();
+    const src = e.dataTransfer.getData('text/plain');
+    if (!src) return;
+    const c = document.getElementById('canvas');
+    const r = c.getBoundingClientRect();
+    const s = scaleFactor();
+    const x = (e.clientX - r.left) / s - 100;
+    const y = (e.clientY - r.top) / s - 100;
+    const name = src.split('/').pop();
+    createEl('image', Math.max(0, x), Math.max(0, y), 250, 250, { src, imgName: name });
+});
+document.getElementById('canvas').addEventListener('dragover', (e) => e.preventDefault());
+
+// ────────────────────────────────────────────── LAYERS
+function updateLayers() {
+    const list = document.getElementById('layerList');
+    list.innerHTML = elements.map(el => {
+        let label = el.type === 'image' ? (el.imgName || 'Image') : (el.text || '').replace(/<[^>]*>/g, '').substring(0, 25);
+        if (!label) label = '(empty)';
+        return `<div class="layer-item${selectedId === el.id?' active':''}" onclick="selectEl(${el.id})">
+            <span>${el.type === 'image' ? '🖼' : 'T'}</span><span title="${label}">${label}</span>
+            <span class="del-layer" onclick="event.stopPropagation();deleteEl(${el.id})">✕</span>
+        </div>`;
+    }).join('');
+}
+
+// ────────────────────────────────────────────── DELETE
+function deleteEl(id) {
+    elements = elements.filter(el => el.id !== id);
+    if (selectedId === id) selectedId = elements.length ? elements[elements.length - 1].id : null;
+    renderAll();
+}
+document.addEventListener('keydown', (e) => {
+    if ((e.key === 'Delete' || e.key === 'Backspace') && !document.activeElement.closest('[contenteditable]')) {
+        if (selectedId) deleteEl(selectedId);
+    }
+    if (e.key === 'Escape') selectEl(null);
+});
+
+// ────────────────────────────────────────────── PASTE
+function showPasteDialog() { document.getElementById('pasteOverlay').classList.add('show'); document.getElementById('pasteTextarea').focus(); }
+function hidePasteDialog() { document.getElementById('pasteOverlay').classList.remove('show'); }
+function confirmPaste() {
+    const val = document.getElementById('pasteTextarea').value.trim();
+    if (!val) return;
+    createEl('text', 50, 50 + elements.length * 5, 400, 120, { text: val.replace(/\n/g, '<br>') });
+    hidePasteDialog();
+}
+
+// ────────────────────────────────────────────── EDIT TEXT
+function editText(id) {
+    const el = elements.find(e => e.id === id);
+    if (!el) return;
+    const div = document.getElementById('el-' + id);
+    const tc = div?.querySelector('.text-content');
+    if (tc) { tc.contentEditable = true; tc.focus(); tc.addEventListener('blur', () => { el.text = tc.innerHTML; tc.contentEditable = false; }, { once: true }); }
+}
+
+// ────────────────────────────────────────────── SAVE
+function saveLayout() {
+    const data = { elements: elements.map(el => ({ ...el })) };
+    localStorage.setItem('editor_layout', JSON.stringify(data));
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'layout.json';
+    a.click();
+    alert('Layout saved to localStorage + layout.json downloaded');
+}
+
+function exportCode() {
+    let html = '<!-- Editor elements – paste into your page -->\n';
+    elements.forEach(el => {
+        const rot = el.rotation ? `rotate(${el.rotation}deg)` : '';
+        if (el.type === 'image') {
+            html += `<div class="deco-el" style="position:fixed;left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;z-index:5;transform:${rot};"><img src="${el.src}" style="width:100%;height:100%;object-fit:contain;display:block;"></div>\n`;
+        } else {
+            html += `<div class="deco-el" style="position:fixed;left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;z-index:5;transform:${rot};overflow:hidden;font-family:'Comic Sans MS',cursive;font-size:14px;">${el.text}</div>\n`;
+        }
+    });
+    const blob = new Blob([html], { type: 'text/html' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'layout-export.html';
+    a.click();
+    alert('HTML exported – paste these divs into your page');
+}
+
+function loadLayout() {
+    const saved = localStorage.getItem('editor_layout');
+    if (saved) {
+        try {
+            const data = JSON.parse(saved);
+            elements = data.elements;
+            let maxId = 0;
+            elements.forEach(el => { if (el.id > maxId) maxId = el.id; });
+            nextId = maxId + 1;
+
+            // One-time cleanup: remove "Your Name" textbox, fix name text
+            if (!localStorage.getItem('fix_v1')) {
+                // Remove text elements with "Your Name" or on far right
+                elements = elements.filter(el => {
+                    if (el.type === 'text') {
+                        const txt = (el.text || '').toLowerCase();
+                        if (txt.includes('your name') || el.x > 500) return false;
+                    }
+                    return true;
+                });
+                // Find "name is.png" and add a text overlay over its white area
+                const nameImg = elements.find(el => el.type === 'image' && el.imgName && el.imgName.toLowerCase().includes('name'));
+                if (nameImg) {
+                    elements.push({
+                        id: nextId++,
+                        type: 'text',
+                        x: nameImg.x + nameImg.w * 0.1,
+                        y: nameImg.y + nameImg.h * 0.32,
+                        w: nameImg.w * 0.78,
+                        h: nameImg.h * 0.35,
+                        rotation: nameImg.rotation || 0,
+                        text: '<span style="font-family:\'Permanent Marker\',cursive;font-size:clamp(14px,2.5vw,36px);color:#000;display:flex;align-items:center;justify-content:center;height:100%;text-align:center;">Your Name</span>'
+                    });
+                }
+                // Re-save cleaned layout
+                localStorage.setItem('fix_v1', '1');
+                localStorage.setItem('editor_layout', JSON.stringify({ elements: elements.map(el => ({...el})) }));
+            }
+
+            renderAll();
+            return true;
+        } catch(e) {}
+    }
+    return false;
+}
+
+function clearCanvas() {
+    if (!confirm('Clear all elements?')) return;
+    elements = []; selectedId = null; renderAll();
+}
+
+// ────────────────────────────────────────────── CLICK BACKGROUND
+document.getElementById('canvas').addEventListener('mousedown', (e) => {
+    if (e.target === e.currentTarget || e.target.tagName === 'IFRAME') selectEl(null);
+});
+
+// ────────────────────────────────────────────── RESIZE PANELS
+function initResize(selector, panelSelector, edge) {
+    const handle = document.querySelector(selector);
+    const panel = document.querySelector(panelSelector);
+    if (!handle || !panel) return;
+    let startX = 0, startW = 0;
+    handle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        startX = e.clientX;
+        startW = panel.getBoundingClientRect().width;
+        handle.classList.add('active');
+        const onMove = (ev) => {
+            const d = (edge === 'right' ? ev.clientX - startX : startX - ev.clientX);
+            const newW = Math.max(60, Math.min(400, startW + d));
+            panel.style.width = newW + 'px';
+        };
+        const onUp = () => { handle.classList.remove('active'); document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    });
+}
+initResize('#resizeLeft', '#toolbar', 'left');
+initResize('#resizeRight', '#assetPanel', 'right');
+
+// ────────────────────────────────────────────── IFRAME FIX
+function fixFrame() {
+    try {
+        const iframe = document.getElementById('pageFrame');
+        const doc = iframe.contentDocument || iframe.contentWindow.document;
+        const style = doc.createElement('style');
+        style.textContent = `
+            #loading, #renderCanvas { display: none !important; }
+            #overlay { width: 100% !important; position: relative !important; right: auto !important; left: 0 !important; border-left: none !important; }
+            .deco-panel, #decoContainer { display: none !important; }
+            body { overflow: auto !important; background: #111 !important; }
+        `;
+        doc.head.appendChild(style);
+        // Also hide loading and trigger a resize
+        const loadEl = doc.getElementById('loading');
+        if (loadEl) loadEl.classList.add('hidden');
+    } catch(e) {
+        console.warn('Cannot inject frame CSS:', e);
+    }
+}
+
+// ────────────────────────────────────────────── INIT
+loadAssets();
+if (!loadLayout()) {
+    // Default layout: name + todo panels at top-right with rotation
+    createEl('image', 880, 20, 300, 300, { src: 'name is.png', imgName: 'name is.png', rotation: 30 });
+    createEl('image', 840, 150, 320, 320, { src: 'to do.png', imgName: 'to do.png', rotation: -60 });
+    createEl('text', 990, 70, 160, 50, { text: '<span style="font-family:\'Permanent Marker\',cursive;font-size:32px;color:#000;display:flex;align-items:center;justify-content:center;height:100%;">Your Name</span>', rotation: 30 });
+}
+</script>
+</body>
+</html>

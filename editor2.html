@@ -1,0 +1,1944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>World Comics</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; overflow: hidden; background: #111; font-family: 'Segoe UI', system-ui, sans-serif; }
+        #renderCanvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: block; }
+
+        #overlay {
+            position: fixed; top: 0; right: 0; width: 40%; height: 100%;
+            background: rgba(10, 8, 20, 0.85); z-index: 10; pointer-events: auto;
+            display: flex; flex-direction: column; border-left: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .overlay-header {
+            padding: 24px 24px 12px; flex-shrink: 0;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            display: flex; flex-direction: column; align-items: center; text-align: center;
+        }
+        .overlay-header h1 {
+            margin: 0; width: 100%; display: flex; justify-content: center; align-items: center;
+        }
+        .overlay-header h1 img.overlay-title-img {
+            max-width: 100%;
+            width: auto;
+            /* increase size by ~50% relative to original (original used 30.8px * 1.4) */
+            height: calc(44.8px * 1.9 * 1.5);
+            display: block;
+            background: transparent;
+            transform-origin: center;
+            transform: scale(1.5);
+        }
+        .overlay-header h1 span { display: none; }
+        .overlay-header p { font-size: 11px; color: #667; margin-top: 2px; letter-spacing: 1px; }
+
+        .overlay-nav {
+            display: flex; gap: 0; flex-shrink: 0;
+            padding: 0 16px; border-bottom: 1px solid rgba(255,255,255,0.06);
+            background: rgba(0,0,0,0.3);
+        }
+        .overlay-nav button {
+            background: none; border: none; color: #667; font-size: 12px; font-weight: 600;
+            padding: 12px 14px; cursor: pointer; letter-spacing: 0.5px;
+            border-bottom: 2px solid transparent; transition: 0.15s; text-transform: uppercase;
+        }
+        .overlay-nav button:hover { color: #aab; }
+        .overlay-nav button.active { color: #fff; border-bottom-color: #e94560; }
+
+        
+
+        .overlay-scroll {
+            flex: 1; overflow-y: auto; padding: 16px 20px 40px;
+        }
+        .overlay-scroll::-webkit-scrollbar { width: 4px; }
+        .overlay-scroll::-webkit-scrollbar-track { background: transparent; }
+        .overlay-scroll::-webkit-scrollbar-thumb { background: #334; border-radius: 2px; }
+
+        .section-title { font-size: 14px; font-weight: 700; color: #e0e0e0; margin-bottom: 14px; margin-top: 4px; letter-spacing: 0.5px; }
+
+        .comic-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+
+        .comic-card {
+            background: rgba(255,255,255,0.04); border-radius: 8px; overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.06); transition: 0.2s; cursor: pointer;
+        }
+        .comic-card:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.12); }
+        .comic-card .cover {
+            width: 100%; aspect-ratio: 2/3; display: block;
+            background: #1a1a2e; object-fit: cover;
+        }
+        .comic-card .info { padding: 10px 12px; }
+        .comic-card .info .title { font-size: 12px; font-weight: 600; color: #ddd; line-height: 1.3; }
+        .comic-card .info .sub {
+            font-size: 10px; color: #667; margin-top: 3px; display: flex; align-items: center; gap: 6px;
+        }
+        .comic-card .info .sub .tag {
+            font-size: 9px; padding: 1px 6px; border-radius: 3px; font-weight: 600; text-transform: uppercase;
+        }
+        .tag-marvel { background: #e9456033; color: #e94560; }
+        .tag-dc { background: #4a9eff33; color: #4a9eff; }
+        .comic-card .info .actions { margin-top: 8px; display: flex; gap: 6px; }
+        .comic-card .info .actions button {
+            font-size: 10px; padding: 4px 10px; border-radius: 4px; border: none; cursor: pointer;
+            font-weight: 600; letter-spacing: 0.3px; transition: 0.15s;
+        }
+        .btn-read { background: #e94560; color: #fff; }
+        .btn-read:hover { background: #d13850; }
+        .btn-dl { background: rgba(255,255,255,0.08); color: #aab; }
+        .btn-dl:hover { background: rgba(255,255,255,0.14); color: #fff; }
+
+        .section-empty { text-align: center; padding: 40px 20px; color: #556; font-size: 13px; }
+        .section-empty .icon { font-size: 32px; margin-bottom: 10px; opacity: 0.4; }
+
+        .about-content { color: #889; font-size: 13px; line-height: 1.7; padding-right: 10px; }
+        .about-content h3 { color: #ccc; font-size: 15px; margin: 16px 0 6px; }
+        .about-content p { margin-bottom: 10px; }
+
+        .hidden { display: none !important; }
+
+        /* ── VIEW PANEL (left side, invisible until comic opens) ── */
+        .overlay-hidden { display: none !important; }
+        #viewPanel {
+            position: fixed; top: 0; left: 0; width: 60%; height: 100%;
+            z-index: 5; pointer-events: auto;
+        }
+        #viewPanel.inactive { background: transparent; pointer-events: none; }
+        #planeComicLabel {
+            position: fixed; left: 0; top: 0; z-index: 9; pointer-events: none;
+            min-width: 160px; max-width: 260px; padding: 10px 12px;
+            background: rgba(10, 8, 20, 0.88); border: 1px solid rgba(233,69,96,0.45);
+            border-radius: 8px; box-shadow: 0 16px 36px rgba(0,0,0,0.35);
+            color: #fff; font-size: 12px; font-weight: 700; line-height: 1.35;
+            letter-spacing: 0.3px; transform: translate(18px, 18px); opacity: 0;
+            transition: opacity 0.15s ease, transform 0.15s ease;
+        }
+        #planeComicLabel .tag {
+            display: inline-block; margin-bottom: 4px; padding: 2px 6px; border-radius: 3px;
+            background: #e9456033; color: #e94560; font-size: 9px; text-transform: uppercase;
+        }
+        #planeComicLabel.visible { opacity: 1; transform: translate(14px, 14px); }
+
+        /* ── READER ── */
+        #reader {
+            display: none; flex-direction: column; width: 100%; height: 100%;
+            background: #0a0a0a; user-select: none;
+        }
+        #reader.open { display: flex; }
+        #reader.fullscreen {
+            position: fixed; top: 0; left: 0; width: 100% !important; height: 100% !important;
+            z-index: 100;
+        }
+        body.fullscreen-mode #overlay { display: none !important; }
+        #reader .reader-top {
+            display: flex; align-items: center;
+            padding: 10px 16px; background: rgba(0,0,0,0.85);
+            flex-shrink: 0; gap: 10px;
+        }
+        #reader .reader-top .title { color: #ccc; font-size: 13px; font-weight: 600; margin-right: auto; }
+        #reader .reader-top .counter { color: #667; font-size: 12px; }
+        #reader .reader-top .mode-btn {
+            background: rgba(255,255,255,0.06); border: none; color: #556;
+            padding: 3px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; line-height: 1.4;
+        }
+        #reader .reader-top .mode-btn.active { background: rgba(233,69,96,0.25); color: #e94560; }
+        #reader .reader-top .mode-btn:hover { background: rgba(233,69,96,0.15); color: #e94560; }
+        #reader .reader-top .close-btn {
+            background: rgba(255,255,255,0.08); border: none; color: #aaa;
+            padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 12px;
+        }
+        #reader .reader-top .close-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+        .reader-body {
+            flex: 1; display: flex; align-items: center; justify-content: center;
+            background: #0a0a0a; overflow: hidden; position: relative;
+        }
+        .reader-body { perspective: 1600px; }
+
+        /* ── Single / Fullscreen mode wraps ── */
+        .reader-body .page-wrap {
+            position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+            backface-visibility: hidden; transform-style: preserve-3d;
+        }
+        .reader-body .page-wrap.front {
+            z-index: 2; transform-origin: left center;
+            transition: transform 0.65s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: perspective(1600px) rotateY(0deg);
+        }
+        .reader-body .page-wrap.back { z-index: 1; }
+        .reader-body .page-wrap.flip {
+            transform: perspective(1600px) rotateY(-115deg);
+        }
+        .reader-body .page-wrap canvas { max-width: 95%; max-height: 95%; display: block; }
+        .reader-body .page-wrap.front.flip { box-shadow: 12px 0 40px rgba(0,0,0,0.5); }
+        .reader-body .page-wrap .shadow-overlay {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            background: rgba(0,0,0,0.35);
+            opacity: 0; transition: opacity 0.3s ease;
+        }
+        .reader-body .page-wrap .shadow-overlay.show { opacity: 1; }
+
+        /* ── Book mode spread (realistic paper fold) ── */
+        .book-spread {
+            position: absolute; inset: 0; display: flex;
+            background: #0a0a0a;
+        }
+        .book-spread .page-slot {
+            flex: 1; height: 100%; display: flex; position: relative;
+            background: #1a1a1a; overflow: hidden;
+        }
+        .book-spread .page-slot canvas {
+            display: block; width: 100%; height: 100%;
+            object-fit: contain; max-width: none; max-height: none;
+        }
+        .book-spread .page-slot.right { perspective: 1000px; }
+        .book-spread .page-wrap {
+            position: absolute; inset: 0; display: flex;
+            backface-visibility: hidden; transform-style: preserve-3d;
+        }
+        .book-spread .page-wrap.front {
+            z-index: 2; transform-origin: left center;
+            transition: transform 0.55s cubic-bezier(0.22, 0.9, 0.35, 1);
+            transform: perspective(1000px) rotateY(0deg);
+        }
+        .book-spread .page-wrap.back { z-index: 1; }
+        .book-spread .page-wrap.flip {
+            transform: perspective(1000px) rotateY(-118deg);
+        }
+
+        /* Shadow cast by the lifting page onto the revealed page */
+        .book-spread .page-wrap .shadow-overlay {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            background: linear-gradient(to right, rgba(0,0,0,0.55) 0%, transparent 45%);
+            opacity: 0; transition: opacity 0.3s ease;
+        }
+        .book-spread .page-wrap .shadow-overlay.show { opacity: 1; }
+
+        /* Fold shadow on the folding page - edge darkens as it bends */
+        .book-spread .page-wrap .fold-shadow {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            background: linear-gradient(to right, transparent 15%, rgba(0,0,0,0.5) 100%);
+            opacity: 0; transition: opacity 0.35s ease;
+        }
+        .book-spread .page-wrap.flip .fold-shadow { opacity: 1; }
+
+        .book-spread .page-wrap.front.flip { box-shadow: 16px 0 35px rgba(0,0,0,0.55); }
+
+        /* Book center crease */
+        .book-spread::after {
+            content: ''; position: absolute; top: 0; bottom: 0; left: 50%;
+            width: 3px; transform: translateX(-1.5px);
+            background: linear-gradient(to bottom, transparent 5%, rgba(0,0,0,0.25) 20%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.25) 80%, transparent 95%);
+            z-index: 5; pointer-events: none;
+        }
+
+        /* ── Turn.js book ── */
+        .book-spread { width: 100%; height: 100%; perspective: 1000px; }
+        .book-spread .turn-page { background: #1a1a1a; }
+        .book-spread .turn-page img { width: 100%; height: 100%; object-fit: contain; display: block; }
+        .turn-loading { display: flex; align-items: center; justify-content: center; height: 100%; color: #445; font-size: 14px; }
+
+        .reader-hint {
+            position: fixed; bottom: 20px; left: 45%;
+            color: #445; font-size: 13px; z-index: 6; pointer-events: none;
+            transition: opacity 0.5s;
+        }
+
+        #loading {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: #111; color: #ccc; font: 16px sans-serif; z-index: 200;
+            transition: opacity 0.5s;
+        }
+        #loading.hidden { opacity: 0; pointer-events: none; }
+        #loading .spinner {
+            width: 36px; height: 36px; border: 3px solid #333; border-top-color: #e94560;
+            border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 14px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .profile-card {
+            background: rgba(255,255,255,0.04); border-radius: 12px; padding: 20px; margin-bottom: 20px;
+        }
+        .profile-card .img-wrap {
+            position: relative; display: inline-block; max-width: 100%;
+        }
+        .profile-card .img-wrap img {
+            display: block; max-width: 100%; height: auto; border-radius: 8px;
+        }
+        .profile-name-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+            pointer-events: none;
+        }
+        .profile-name-overlay span {
+            font-family: 'Permanent Marker', cursive; font-size: clamp(18px, 4vw, 42px);
+            color: #000; text-align: center; line-height: 1.1;
+            max-width: 70%; word-break: break-word;
+        }
+        .profile-input {
+            width: 100%; padding: 10px 14px; margin-top: 12px;
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px; color: #ccc; font-size: 14px; outline: none;
+            font-family: inherit;
+        }
+        .profile-input:focus { border-color: #e94560; }
+        .profile-label { font-size: 11px; color: #667; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+
+        .todo-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; padding: 6% 8%;
+            pointer-events: none;
+        }
+        .todo-overlay .todo-item {
+            font-family: 'Comic Sans MS', 'Comic Sans', cursive;
+            font-size: clamp(10px, 2vw, 18px); color: #222;
+            line-height: 1.8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .todo-add-row {
+            display: flex; gap: 8px; margin-top: 10px;
+        }
+        .todo-add-row input {
+            flex: 1; padding: 10px 14px;
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px; color: #ccc; font-size: 14px; outline: none;
+            font-family: 'Comic Sans MS', 'Comic Sans', cursive;
+        }
+        .todo-add-row input:focus { border-color: #e94560; }
+        .todo-add-row button {
+            padding: 10px 16px; background: #e94560; border: none; border-radius: 8px;
+            color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
+        }
+        .todo-add-row button:hover { background: #d63850; }
+        .todo-list { margin-top: 8px; }
+        .todo-list-item {
+            display: flex; align-items: center; gap: 8px; padding: 4px 0;
+            font-family: 'Comic Sans MS', 'Comic Sans', cursive; font-size: 13px; color: #aab;
+        }
+        .todo-list-item .del { cursor: pointer; color: #e94560; font-weight: bold; font-family: sans-serif; }
+
+        #decoContainer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 20; }
+        #decoContainer .deco-el { position: absolute; pointer-events: auto; cursor: move; user-select: none; }
+        #decoContainer .deco-el img { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; }
+        #decoContainer .deco-el .text-content { width: 100%; height: 100%; overflow: hidden; font-family: 'Comic Sans MS', 'Comic Sans', cursive; }
+        #decoContainer .deco-el .del-btn { position: absolute; top: -10px; right: -10px; width: 22px; height: 22px; border-radius: 50%; background: #e94560; color: #fff; border: 2px solid #fff; font-size: 14px; line-height: 18px; text-align: center; cursor: pointer; z-index: 5; display: none; }
+        #decoContainer .deco-el:hover .del-btn { display: block; }
+        #decoContainer .deco-el .resize-handle { position: absolute; bottom: -6px; right: -6px; width: 14px; height: 14px; border-radius: 2px; background: #e94560; border: 2px solid #fff; cursor: nwse-resize; z-index: 5; display: none; }
+        #decoContainer .deco-el:hover .resize-handle { display: block; }
+        .deco-el.spin .spin-wrap { width: 100%; height: 100%; }
+        .deco-el.spin .spin-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
+        #decoContainer .deco-el.dragging { opacity: 0.85; z-index: 100; }
+        #decoContainer .deco-el.resizing { opacity: 0.85; z-index: 100; }
+        #editorToolbar { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; gap: 8px; align-items: center; background: rgba(10,8,20,0.9); padding: 10px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); }
+        #editorToolbar button { background: #e94560; color: #fff; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+        #editorToolbar button:hover { background: #d63850; }
+        #editorToolbar input[type="text"] { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 13px; width: 140px; }
+        #editorToolbar .img-picker { position: relative; }
+        #editorToolbar .img-picker .dropdown { display: none; position: absolute; bottom: 100%; left: 0; margin-bottom: 4px; background: rgba(10,8,20,0.95); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 6px; min-width: 160px; max-height: 200px; overflow-y: auto; }
+        #editorToolbar .img-picker .dropdown.show { display: block; }
+        #editorToolbar .img-picker .dropdown div { padding: 6px 10px; cursor: pointer; color: #ccc; font-size: 13px; border-radius: 4px; }
+        #editorToolbar .img-picker .dropdown div:hover { background: rgba(233,69,96,0.3); color: #fff; }
+        #viewPanel:not(.inactive) ~ #decoContainer { display: none; }
+    </style>
+</head>
+<body>
+    <div id="loading"><div class="spinner"></div>Loading…</div>
+    <div id="overlay">
+        <div class="overlay-header">
+            <h1><img src="fin.png" alt="World Comics" class="overlay-title-img"></h1>
+            <p>Your digital comic library</p>
+        </div>
+        <nav class="overlay-nav" id="navTabs">
+            <button class="active" data-section="home">Home</button>
+            <button data-section="marvel">Marvel</button>
+            <button data-section="dc">DC</button>
+            <button data-section="library">My Library</button>
+            <button data-section="profile">Profile</button>
+            <button data-section="about">About</button>
+        </nav>
+        <div class="overlay-scroll" id="overlayScroll"></div>
+    </div>
+    <div id="viewPanel" class="inactive">
+        <div id="reader">
+            <div class="reader-top">
+                <span class="title" id="readerTitle"></span>
+                <span class="counter" id="readerCounter"></span>
+                <button class="mode-btn active" data-mode="single" onclick="switchReaderMode('single')" title="Single page">1</button>
+                <button class="mode-btn" data-mode="book" onclick="switchReaderMode('book')" title="Book spread">||</button>
+                <button class="mode-btn" data-mode="fullscreen" onclick="switchReaderMode('fullscreen')" title="Fullscreen">⛶</button>
+                <button class="close-btn" onclick="closeReader()">✕ Close</button>
+            </div>
+            <div class="reader-body" id="readerBody">
+                <div class="page-wrap" id="pageWrap0"></div>
+                <div class="page-wrap" id="pageWrap1"></div>
+            </div>
+            <div class="reader-hint" id="readerHint">Press Spacebar to advance →</div>
+        </div>
+    </div>
+    <div id="decoContainer"></div>
+    <div id="editorToolbar">
+        <div class="img-picker">
+            <button id="addImgBtn">+ Add Image</button>
+            <div class="dropdown" id="imgDropdown">
+                <div data-src="name is.png">name is.png</div>
+                <div data-src="fin.png">fin.png</div>
+                <div data-src="heading.png">heading.png</div>
+            </div>
+        </div>
+        <input type="text" id="customImgInput" placeholder="filename.png" title="Enter a filename from the server">
+        <button id="customImgBtn">Add</button>
+        <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp" hidden>
+        <button id="uploadBtn">📁 From PC</button>
+        <button id="spinToggleBtn">🔄 Spin</button>
+        <button id="saveLayoutBtn">💾 Save</button>
+    </div>
+    <div id="planeComicLabel" aria-hidden="true"></div>
+    <canvas id="renderCanvas"></canvas>
+
+    
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
+    <script src="jquery.js"></script>
+    <script src="turn.js"></script>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    
+    <script>
+        if (window.location.search.includes('editor=1')) document.body.classList.add('editor-mode');
+
+        // ────────────────────────────────────────────── PDF COMICS ENGINE
+        const COMICS_DIR = './comics/';
+        const pdfCache = new Map();
+
+        function comicURL(filename) { return COMICS_DIR + filename.replace(/#/g, '%23').replace(/ /g, '%20'); }
+
+        async function loadPDF(filename) {
+            if (pdfCache.has(filename)) return pdfCache.get(filename);
+            const pdf = await pdfjsLib.getDocument(comicURL(filename)).promise;
+            pdfCache.set(filename, pdf);
+            return pdf;
+        }
+
+        async function renderPDFpage(pdf, pageNum, canvas, scale) {
+            scale = scale || 1.5;
+            const page = await pdf.getPage(pageNum);
+            const vp = page.getViewport({ scale });
+            canvas.width = vp.width;
+            canvas.height = vp.height;
+            const ctx = canvas.getContext('2d');
+            const renderTask = page.render({ canvasContext: ctx, viewport: vp });
+            await renderTask.promise;
+            return canvas;
+        }
+
+        function detectCategory(path) {
+            if (path.startsWith('marvel/')) return 'Marvel';
+            if (path.startsWith('dc/')) return 'DC';
+            return 'Marvel';
+        }
+
+        function extractYear(filename) {
+            const m = filename.match(/\((\d{4})\)/);
+            return m ? m[1] : '—';
+        }
+
+        function formatSize(bytes) {
+            if (!bytes) return '—';
+            const mb = (bytes / (1024 * 1024)).toFixed(0);
+            return mb + ' MB';
+        }
+
+        // ────────────────────────────────────────────── COMICS FROM PDF FILES
+        const comicFiles = [
+            { path: 'marvel/absolute-carnage/', name: 'Absolute Carnage (2019) 1#.pdf' },
+            { path: 'dc/superman/', name: 'Absolute Superman 020.pdf' },
+            { path: 'dc/batman/', name: 'Batman (2025) 1#.pdf' },
+            { path: 'ysk-comics/', name: 'chapter (YSK Comics).pdf' },
+            { path: 'marvel/deadpool/', name: 'deadpool-vol-6.pdf' },
+            { path: 'marvel/jessica-jones/', name: 'Jessica Jones (2016) 1#.pdf' },
+            { path: 'marvel/marvel-now/', name: 'marvel-now-point-one.pdf' },
+            { path: 'marvel/marvel-now/', name: 'marvel-now-what-1.pdf' },
+            { path: 'dc/raven/', name: 'Raven (2016) 1#.pdf' },
+            { path: 'dc/superman/', name: 'Superman (2016) 1#.pdf' },
+            { path: 'marvel/amazing-spider-man/', name: 'The amazing spider-man (2018) 1#.pdf' },
+        ];
+
+        const comics = comicFiles.map((f, i) => {
+            const fullFilename = f.path + f.name;
+            const title = f.name.replace('.pdf', '').replace(/\(.*?\)/g, '').replace(/1#/g, '').replace(/\s+/g, ' ').trim();
+            return {
+                id: i + 1,
+                filename: fullFilename,
+                title: title,
+                category: detectCategory(f.path),
+                year: extractYear(f.name),
+                pages: 'PDF',
+                pdf: null,
+                numPages: 0,
+                loaded: false,
+            };
+        });
+
+        // ────────────────────────────────────────────── BUILD UI
+        let scrollEl = document.getElementById('overlayScroll');
+
+        function renderSection(sectionId, items) {
+            const div = document.createElement('div');
+            div.id = sectionId + '-section';
+            div.className = sectionId === 'home' ? '' : 'hidden';
+
+            const titleMap = {
+                home: 'All Comics', marvel: 'Marvel Comics', dc: 'DC Comics',
+                library: 'My Library', about: 'About'
+            };
+            const title = document.createElement('div');
+            title.className = 'section-title';
+            title.textContent = titleMap[sectionId] || sectionId;
+            div.appendChild(title);
+
+            if (sectionId === 'library') {
+                const empty = document.createElement('div');
+                empty.className = 'section-empty';
+                empty.innerHTML = 'No comics downloaded yet.<br>Browse and download comics to build your library!';
+                div.appendChild(empty);
+            } else if (sectionId === 'about') {
+                const about = document.createElement('div');
+                about.className = 'about-content';
+                about.innerHTML = `
+                    <h3>World Comics</h3>
+                    <p>Your local digital comic library. Browse and read comics from your collection.</p>
+                    <h3>Features</h3>
+                    <p>• PDF comic reader<br>• Page-turn animation<br>• Spacebar navigation<br>• 3D interactive scene</p>
+                    <p style="margin-top:16px;color:#445;">Powered by PDF.js + Babylon.js</p>
+                `;
+                div.appendChild(about);
+            } else if (sectionId === 'profile') {
+                const savedName = localStorage.getItem('deco_name') || '';
+                const savedTodos = JSON.parse(localStorage.getItem('deco_todos') || '[]');
+                div.innerHTML = `
+                    <div class="profile-card">
+                        <div class="profile-label">Your Name</div>
+                        <div class="img-wrap">
+                            <img src="name is.png" alt="Name tag">
+                            <div class="profile-name-overlay"><span id="profileNameDisplay">${savedName || 'Your Name'}</span></div>
+                        </div>
+                        <input class="profile-input" id="profileNameInput" value="${savedName}" placeholder="Enter your name...">
+                    </div>
+                    <div class="profile-card">
+                        <div class="profile-label">To-Do List</div>
+                        <div class="img-wrap">
+                            <img src="to do.png" alt="To-do list">
+                            <div class="todo-overlay" id="profileTodoOverlay"></div>
+                        </div>
+                        <div class="todo-add-row">
+                            <input id="todoInput" placeholder="Add a task…">
+                            <button id="todoAddBtn">Add</button>
+                        </div>
+                        <div class="todo-list" id="todoListContainer"></div>
+                    </div>
+                `;
+            } else if (items && items.length) {
+                const grid = document.createElement('div');
+                grid.className = 'comic-grid';
+
+                items.forEach(comic => {
+                    const card = document.createElement('div');
+                    card.className = 'comic-card';
+                    card.dataset.comicId = comic.id;
+
+                    const cv = document.createElement('canvas');
+                    cv.className = 'cover';
+                    cv.width = 200; cv.height = 300;
+                    cv.dataset.comicId = comic.id;
+
+                    const info = document.createElement('div');
+                    info.className = 'info';
+                    info.innerHTML = `
+                        <div class="title">${comic.title}</div>
+                        <div class="sub">
+                            <span class="tag tag-${comic.category.toLowerCase()}">${comic.category}</span>
+                            <span>${comic.year}</span>
+                            <span class="pagesize">${comic.pages}</span>
+                        </div>
+                        <div class="actions">
+                            <button class="btn-read">Read</button>
+                            <button class="btn-dl">Download</button>
+                        </div>
+                    `;
+
+                    card.appendChild(cv);
+                    card.appendChild(info);
+                    grid.appendChild(card);
+                });
+
+                div.appendChild(grid);
+            }
+
+            return div;
+        }
+
+        const sections = ['home', 'marvel', 'dc', 'library', 'profile', 'about'];
+        const sectionData = {
+            home: comics,
+            marvel: comics.filter(c => c.category === 'Marvel'),
+            dc: comics.filter(c => c.category === 'DC'),
+        };
+        sections.forEach(s => {
+            scrollEl.appendChild(renderSection(s, sectionData[s]));
+        });
+
+        // ─── Load covers & metadata asynchronously ───
+        (async function loadCovers() {
+            for (const comic of comics) {
+                const cv = document.querySelector(`.comic-card[data-comic-id="${comic.id}"] canvas.cover`);
+                if (!cv) continue;
+                try {
+                    const pdf = await loadPDF(comic.filename);
+                    comic.pdf = pdf;
+                    comic.numPages = pdf.numPages;
+                    comic.loaded = true;
+
+                    const sizeEl = document.querySelector(`.comic-card[data-comic-id="${comic.id}"] .pagesize`);
+                    if (sizeEl) sizeEl.textContent = pdf.numPages + ' pages';
+
+                    // Render first page as cover thumbnail
+                    await renderPDFpage(pdf, 1, cv, 0.5);
+                } catch (err) {
+                    console.warn('Failed to load cover:', comic.filename, err);
+                    const ctx = cv.getContext('2d');
+                    ctx.fillStyle = '#1a1a2e';
+                    ctx.fillRect(0, 0, cv.width, cv.height);
+                    ctx.fillStyle = '#445';
+                    ctx.font = '12px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('Load failed', cv.width / 2, cv.height / 2);
+                }
+            }
+        })();
+
+        // ────────────────────────────────────────────── TAB SWITCHING
+        function attachNavHandlers(){
+            const navButtons = document.querySelectorAll('#navTabs button');
+            navButtons.forEach(btn => {
+                btn.removeEventListener && btn.replaceListener; // noop to satisfy linters
+                btn.addEventListener('click', () => {
+                    navButtons.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    const section = btn.dataset.section;
+                    sections.forEach(s => {
+                        const el = document.getElementById(s + '-section');
+                        if (el) el.classList.toggle('hidden', s !== section);
+                    });
+                    scrollEl.scrollTop = 0;
+                });
+            });
+        }
+        attachNavHandlers();
+
+        // ────────────────────────────────────────────── COMIC READER
+        let readerState = null;
+        let animating = false;
+        let readerMode = 'single';
+        let pendingPage = null;
+
+        function switchReaderMode(mode) {
+            if (!readerState || mode === readerMode || animating) return;
+            pendingPage = null;
+            readerMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(b =>
+                b.classList.toggle('active', b.dataset.mode === mode)
+            );
+            const reader = document.getElementById('reader');
+            reader.classList.toggle('fullscreen', mode === 'fullscreen');
+            reader.classList.toggle('book-mode', mode === 'book');
+            document.body.classList.toggle('fullscreen-mode', mode === 'fullscreen');
+            renderReaderForMode();
+            setTimeout(() => { if ($('#turnBook').length) $('#turnBook').turn('resize'); }, 100);
+        }
+
+        function renderReaderForMode() {
+            if (!readerState) return;
+            teardownBookMode();
+            if (document.getElementById('turnBook')) {
+                try { $('#turnBook').turn('destroy').remove(); } catch(e) {}
+            }
+            if (readerMode === 'single') {
+                setupSingleMode();
+            } else {
+                setupTurnMode();
+            }
+        }
+
+        function setupSingleMode() {
+            const s = readerState;
+            const body = document.getElementById('readerBody');
+            body.innerHTML = `
+                <div class="page-wrap" id="pageWrap0"></div>
+                <div class="page-wrap" id="pageWrap1"></div>
+            `;
+            const w0 = document.getElementById('pageWrap0');
+            w0.innerHTML = '';
+            const src = s.pageCanvases[s.pageIndex];
+            if (src) {
+                const cv = document.createElement('canvas');
+                cv.width = src.width; cv.height = src.height;
+                cv.getContext('2d').drawImage(src, 0, 0);
+                cv.style.maxWidth = '95%'; cv.style.maxHeight = '95%';
+                w0.appendChild(cv);
+            }
+            w0.className = 'page-wrap front';
+            updateReaderCounter();
+        }
+
+        function teardownBookMode() {
+            const book = document.getElementById('turnBook');
+            if (book) {
+                try { $('#turnBook').turn('destroy').remove(); } catch(e) {}
+            }
+        }
+
+        function setupTurnMode() {
+            const s = readerState;
+            const body = document.getElementById('readerBody');
+            body.innerHTML = '<div class="book-spread" id="turnBook"></div>';
+
+            const book = document.getElementById('turnBook');
+            for (let i = 0; i < s.numPages; i++) {
+                const page = document.createElement('div');
+                page.className = 'turn-page';
+                page.id = 'tp-' + (i + 1);
+                page.innerHTML = '<div class="turn-loading">\u2022</div>';
+                book.appendChild(page);
+            }
+
+            // Calculate dimensions to maintain aspect ratio
+            const firstCanvas = s.pageCanvases[0];
+            const ratio = firstCanvas ? (firstCanvas.width / firstCanvas.height) : 1.4;
+            const winW = window.innerWidth * 0.9;
+            const winH = window.innerHeight * 0.9;
+            let width = winW, height = winH;
+            if (width / height > ratio * 2) { width = height * ratio * 2; }
+            else { height = width / (ratio * 2); }
+            book.style.width = width + 'px';
+            book.style.height = height + 'px';
+
+            $('#turnBook').turn({
+                width: width,
+                height: height,
+                display: 'double',
+                acceleration: true,
+                gradients: true,
+                autoCenter: true,
+                elevation: 50,
+                when: {
+                    turning: function(e, page, view) {
+                        const s = readerState;
+                        if (!s) return;
+                        s.pageIndex = view[0] - 1;
+                        updateReaderCounter();
+                        view.forEach(function(p) {
+                            if (p > 0 && p <= s.numPages) renderTurnPage(p);
+                        });
+                        const last = view[view.length - 1];
+                        for (let i = last + 1; i <= last + 2 && i <= s.numPages; i++) {
+                            renderTurnPage(i);
+                        }
+                    }
+                }
+            });
+
+            const targetPage = Math.min(s.pageIndex + 1, s.numPages);
+            $('#turnBook').turn('page', targetPage);
+
+            for (let i = 1; i <= s.numPages && i <= 4; i++) renderTurnPage(i);
+            updateReaderCounter();
+        }
+
+        async function renderTurnPage(pageNum) {
+            const s = readerState;
+            if (!s) return;
+            var idx = pageNum - 1;
+            if (idx < 0 || idx >= s.numPages) return;
+            var pageDiv = document.getElementById('tp-' + pageNum);
+            if (!pageDiv || pageDiv.querySelector('img')) return;
+            var canvas = await getPageCanvas(idx);
+            if (!canvas) return;
+            var pageDiv2 = document.getElementById('tp-' + pageNum);
+            if (!pageDiv2 || pageDiv2.querySelector('img')) return;
+            var img = document.createElement('img');
+            img.src = canvas.toDataURL('image/jpeg');
+            pageDiv2.innerHTML = '';
+            pageDiv2.appendChild(img);
+        }
+
+        async function openReader(comic) {
+            document.getElementById('readerTitle').textContent = comic.title;
+            document.getElementById('readerBody').innerHTML =
+                '<div style="color:#445;font-size:14px;align-self:center;">Loading…</div>';
+
+            document.getElementById('viewPanel').classList.remove('inactive');
+            document.getElementById('reader').classList.add('open');
+
+            try {
+                const pdf = comic.pdf || await loadPDF(comic.filename);
+                comic.pdf = pdf;
+                const numPages = pdf.numPages;
+
+                const [c0, c1, c2] = await Promise.all([
+                    renderPDFpage(pdf, 1, document.createElement('canvas'), 1.2),
+                    numPages > 1 ? renderPDFpage(pdf, 2, document.createElement('canvas'), 1.2) : null,
+                    numPages > 2 ? renderPDFpage(pdf, 3, document.createElement('canvas'), 1.2) : null
+                ]);
+                const pages = { 0: c0 };
+                if (c1) pages[1] = c1;
+                if (c2) pages[2] = c2;
+
+                readerState = { pdf, comic, pageCanvases: pages, pageIndex: 0, numPages };
+                readerMode = 'single';
+                document.querySelectorAll('.mode-btn').forEach(b =>
+                    b.classList.toggle('active', b.dataset.mode === 'single')
+                );
+
+                const reader = document.getElementById('reader');
+                reader.classList.remove('fullscreen', 'book-mode');
+
+                setupSingleMode();
+                hintReader();
+            } catch (err) {
+                document.getElementById('readerBody').innerHTML =
+                    `<div style="color:#e94560;font-size:14px;align-self:center;">Error: ${err.message}</div>`;
+                console.error(err);
+            }
+        }
+
+        async function getPageCanvas(index) {
+            const s = readerState;
+            if (!s) return null;
+            if (s.pageCanvases[index]) return s.pageCanvases[index];
+            const cv = document.createElement('canvas');
+            await renderPDFpage(s.pdf, index + 1, cv, 1.2);
+            s.pageCanvases[index] = cv;
+            return cv;
+        }
+
+        function readerNext() {
+            const s = readerState;
+            if (!s || animating) return;
+            if (readerMode === 'single') {
+                readerNextSingle();
+            } else {
+                readerNextTurn();
+            }
+        }
+
+        function readerPrev() {
+            const s = readerState;
+            if (!s || animating) return;
+            if (readerMode === 'single') {
+                readerPrevSingle();
+            } else {
+                readerPrevTurn();
+            }
+        }
+
+        function readerNextSingle() {
+            const s = readerState;
+            if (!s || animating) return;
+            if (s.pageIndex < s.numPages - 1) {
+                pendingPage = s.pageIndex + 1;
+                animateToSingle();
+            }
+        }
+
+        function readerPrevSingle() {
+            const s = readerState;
+            if (!s || animating) return;
+            if (s.pageIndex > 0) {
+                pendingPage = s.pageIndex - 1;
+                animateToSingle();
+            }
+        }
+
+        async function animateToSingle() {
+            const s = readerState;
+            if (!s || animating || pendingPage === null || pendingPage === s.pageIndex) return;
+            animating = true;
+            const target = pendingPage;
+
+            const w0 = document.getElementById('pageWrap0');
+            const w1 = document.getElementById('pageWrap1');
+            if (!w0 || !w1) { animating = false; pendingPage = null; return; }
+
+            const front = w0.classList.contains('front') ? w0 : w1;
+            const back = front === w0 ? w1 : w0;
+
+            back.innerHTML = '<div style="color:#445;">Loading page…</div>';
+            const src = await getPageCanvas(target);
+            if (!src || target !== pendingPage) { animating = false; pendingPage = null; return; }
+            back.innerHTML = '';
+            const cv = document.createElement('canvas');
+            cv.width = src.width; cv.height = src.height;
+            cv.getContext('2d').drawImage(src, 0, 0);
+            cv.style.maxWidth = '95%'; cv.style.maxHeight = '95%';
+            back.appendChild(cv);
+            back.className = 'page-wrap back';
+
+            const shadowDiv = document.createElement('div');
+            shadowDiv.className = 'shadow-overlay';
+            back.appendChild(shadowDiv);
+
+            front.className = 'page-wrap front';
+            pendingPage = null;
+
+            requestAnimationFrame(() => {
+                front.classList.add('flip');
+                shadowDiv.classList.add('show');
+                s.pageIndex = target;
+                updateReaderCounter();
+
+                setTimeout(() => {
+                    front.classList.remove('flip');
+                    front.className = 'page-wrap back';
+                    back.className = 'page-wrap front';
+                    shadowDiv.classList.remove('show');
+                    shadowDiv.remove();
+                    animating = false;
+                }, 700);
+            });
+        }
+
+        function readerNextTurn() {
+            const s = readerState;
+            if (!s) return;
+            const book = $('#turnBook');
+            if (book.turn('is') === 'playing') return;
+            book.turn('next');
+        }
+
+        function readerPrevTurn() {
+            const s = readerState;
+            if (!s) return;
+            const book = $('#turnBook');
+            if (book.turn('is') === 'playing') return;
+            book.turn('previous');
+        }
+
+        function updateReaderCounter() {
+            const s = readerState;
+            if (!s) return;
+            if (readerMode === 'fullscreen') {
+                const book = $('#turnBook');
+                if (book.length) {
+                    var view = book.turn('view');
+                    if (view.length >= 2) {
+                        var n = Math.floor(view[1] / 2);
+                        document.getElementById('readerCounter').textContent = 'Page ' + n + ' / ' + s.numPages;
+                    }
+                }
+            } else if (readerMode === 'single') {
+                document.getElementById('readerCounter').textContent =
+                    'Page ' + (s.pageIndex + 1) + ' / ' + s.numPages;
+            } else {
+                const book = $('#turnBook');
+                if (book.length) {
+                    var view = book.turn('view');
+                    if (view.length === 2) {
+                        document.getElementById('readerCounter').textContent =
+                            'Pages ' + view[0] + '\u2013' + view[1] + ' / ' + s.numPages;
+                    } else {
+                        document.getElementById('readerCounter').textContent =
+                            'Page ' + view[0] + ' / ' + s.numPages;
+                    }
+                }
+            }
+        }
+
+        function hintReader() {
+            const h = document.getElementById('readerHint');
+            h.style.opacity = '1';
+            setTimeout(() => { if (h) h.style.opacity = '0'; }, 3000);
+        }
+
+        function closeReader() {
+            document.getElementById('reader').classList.remove('open', 'fullscreen', 'book-mode');
+            document.body.classList.remove('fullscreen-mode');
+            document.getElementById('viewPanel').classList.add('inactive');
+            try { $('#turnBook').turn('destroy').remove(); } catch(e) {}
+            const pw0 = document.getElementById('pageWrap0');
+            const pw1 = document.getElementById('pageWrap1');
+            if (pw0) { pw0.innerHTML = ''; pw0.className = 'page-wrap back'; pw0.style.boxShadow = ''; }
+            if (pw1) { pw1.innerHTML = ''; pw1.className = 'page-wrap back'; pw1.style.boxShadow = ''; }
+            const spread = document.getElementById('bookSpread');
+            if (spread) spread.remove();
+            readerState = null;
+            animating = false;
+            pendingPage = null;
+        }
+
+        // Keyboard nav
+        document.addEventListener('keydown', (e) => {
+            if (!readerState) return;
+            if (e.key === ' ' || e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                e.preventDefault();
+                readerNext();
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                readerPrev();
+            } else if (e.key === 'Escape') {
+                closeReader();
+            }
+        });
+
+        // Click on reader to advance/retreat
+        document.getElementById('readerBody').addEventListener('click', (e) => {
+            if (e.target.closest('.reader-top')) return;
+            const rect = e.currentTarget.getBoundingClientRect();
+            if (e.clientX - rect.left < rect.width / 2) {
+                readerPrev();
+            } else {
+                readerNext();
+            }
+        });
+
+        // Read button handler
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest('.btn-read');
+            if (!btn) return;
+            const card = btn.closest('.comic-card');
+            if (!card) return;
+            const id = parseInt(card.dataset.comicId);
+            const comic = comics.find(c => c.id === id);
+            if (comic) openReader(comic);
+        });
+
+        // Download handler
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest('.btn-dl');
+            if (!btn) return;
+            const card = btn.closest('.comic-card');
+            if (!card) return;
+            const id = parseInt(card.dataset.comicId);
+            const comic = comics.find(c => c.id === id);
+            if (!comic) return;
+            const a = document.createElement('a');
+            a.href = comicURL(comic.filename);
+            a.download = comic.filename;
+            a.click();
+        });
+
+        // ────────────────────────────────────────────── BABYLON 3D SCENE
+        const canvas = document.getElementById('renderCanvas');
+        const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
+        engine.setHardwareScalingLevel(1);
+
+        const sceneConfig = {
+            "lights": [
+                {"name":"tablelamp","type":"PointLight","position":[-4.0836,0.9349,0.8248],"diffuse":[0.949,0.604,0.373],"intensity":4,"range":5},
+                {"name":"upperlight","type":"PointLight","position":[-4.3194,2.1201,0.4873],"diffuse":[0.553,0.353,0.165],"intensity":3,"range":6},
+                {"name":"PointLight_1782746515509","type":"PointLight","position":[-4.4993,1.985,4.5026],"diffuse":[1,1,0.9],"intensity":2,"range":6},
+                {"name":"PointLight_1782746598960","type":"PointLight","position":[-3.9844,2.2153,1.5756],"diffuse":[1,1,0.9],"intensity":4,"range":6}
+            ],
+            "cameras": [
+                {"name":"Camera","type":"FreeCamera","position":[-4.2236,1.2364,1.5868],"fov":1.27,"rotation":[0,3.1416,0]}
+            ],
+            "activeCamera": "Camera"
+        };
+
+
+        function pickRandomComics(count, excludedFilenames) {
+            const blocked = new Set((excludedFilenames || []).map(name => name.toLowerCase()));
+            const pool = comics.filter(comic => !blocked.has(comic.filename.toLowerCase()));
+            const shuffled = [...pool].sort(() => Math.random() - 0.5);
+            return Array.from({ length: count }, (_, i) => shuffled[i % shuffled.length]);
+        }
+
+        function normalizeMeshName(name) {
+            return String(name || '').toLowerCase().replace(/[\s._-]+/g, '');
+        }
+
+        function findComicPlane(scene, targetName) {
+            const target = normalizeMeshName(targetName);
+            return scene.meshes.find(mesh => normalizeMeshName(mesh.name) === target) || null;
+        }
+
+        function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight, maxLines) {
+            const words = text.split(' ');
+            let line = '';
+            let lines = [];
+            words.forEach(word => {
+                const test = line ? line + ' ' + word : word;
+                if (ctx.measureText(test).width > maxWidth && line) {
+                    lines.push(line);
+                    line = word;
+                } else {
+                    line = test;
+                }
+            });
+            if (line) lines.push(line);
+            lines.slice(0, maxLines).forEach((ln, i) => {
+                const suffix = i === maxLines - 1 && lines.length > maxLines ? '...' : '';
+                ctx.fillText(ln + suffix, x, y + i * lineHeight);
+            });
+        }
+
+        function drawComicCardTexture(ctx, cover, comic, highlighted) {
+            ctx.clearRect(0, 0, 512, 768);
+            ctx.fillStyle = '#0a0814';
+            ctx.fillRect(0, 0, 512, 768);
+
+            if (cover) {
+                const ratio = Math.min(512 / cover.width, 768 / cover.height);
+                const w = cover.width * ratio;
+                const h = cover.height * ratio;
+                ctx.drawImage(cover, (512 - w) / 2, (768 - h) / 2, w, h);
+            }
+
+            const grad = ctx.createLinearGradient(0, 520, 0, 768);
+            grad.addColorStop(0, 'rgba(10,8,20,0)');
+            grad.addColorStop(0.45, 'rgba(10,8,20,0.78)');
+            grad.addColorStop(1, 'rgba(10,8,20,0.96)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 500, 512, 268);
+
+            ctx.fillStyle = highlighted ? '#ff6078' : '#e94560';
+            ctx.fillRect(0, 0, 512, highlighted ? 14 : 8);
+            ctx.fillStyle = '#e94560';
+            ctx.fillRect(32, 612, 86, 26);
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 16px Segoe UI, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(comic.category, 75, 631);
+
+            ctx.textAlign = 'left';
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 30px Segoe UI, sans-serif';
+            wrapCanvasText(ctx, comic.title, 32, 672, 448, 34, 2);
+        }
+
+        async function paintComicOnPlane(mesh, comic, scene) {
+            const tex = new BABYLON.DynamicTexture(mesh.name + 'ComicTex', { width: 512, height: 768 }, scene, false, BABYLON.Texture.TRILINEAR_SAMPLINGMODE, undefined, false);
+            const ctx = tex.getContext();
+            const state = mesh.metadata.comicPlaneState;
+
+            drawComicCardTexture(ctx, null, comic, false);
+            ctx.fillStyle = '#667';
+            ctx.font = 'bold 22px Segoe UI, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Loading cover...', 256, 384);
+            tex.update(false);
+
+            const mat = new BABYLON.StandardMaterial(mesh.name + 'ComicMat', scene);
+            mat.diffuseTexture = tex;
+            mat.emissiveTexture = tex;
+            mat.emissiveColor = BABYLON.Color3.White();
+            mat.specularColor = BABYLON.Color3.Black();
+            mat.backFaceCulling = false;
+            mesh.material = mat;
+
+            state.texture = tex;
+            state.draw = highlighted => {
+                drawComicCardTexture(ctx, state.coverCanvas, comic, highlighted);
+                tex.update(false);
+            };
+
+            try {
+                const pdf = comic.pdf || await loadPDF(comic.filename);
+                comic.pdf = pdf;
+                comic.numPages = pdf.numPages;
+                comic.loaded = true;
+                state.coverCanvas = await renderPDFpage(pdf, 1, document.createElement('canvas'), 0.9);
+                state.draw(false);
+            } catch (err) {
+                ctx.fillStyle = '#101018';
+                ctx.fillRect(0, 0, 512, 768);
+                ctx.fillStyle = '#e94560';
+                ctx.font = 'bold 28px Segoe UI, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Comic failed', 256, 384);
+                tex.update(false);
+                console.warn('Failed to paint comic plane:', mesh.name, comic.filename, err);
+            }
+        }
+
+        function setupComicPlanes(scene) {
+            const targetNames = [
+                'plane13', 'plane 13', 'plane10', 'plane7', 'plane11',
+                'plane6', 'plane8', 'plane4', 'Plane'
+            ];
+            const uniqueTargets = [...new Set(targetNames.map(normalizeMeshName))];
+            const assignedComics = pickRandomComics(uniqueTargets.length);
+            const label = document.getElementById('planeComicLabel');
+            let hoveredMesh = null;
+
+            uniqueTargets.forEach((normalizedName, index) => {
+                const sourceName = targetNames.find(name => normalizeMeshName(name) === normalizedName);
+                const mesh = findComicPlane(scene, sourceName);
+                if (!mesh) {
+                    console.warn('Comic plane not found:', sourceName);
+                    return;
+                }
+
+                const comic = assignedComics[index];
+
+                const baseScaling = mesh.scaling.clone();
+                mesh.metadata = {
+                    ...(mesh.metadata || {}),
+                    comic,
+                    comicPlaneState: { baseScaling, coverCanvas: null, draw: null, texture: null }
+                };
+                mesh.isPickable = true;
+                paintComicOnPlane(mesh, comic, scene);
+
+                mesh.actionManager = new BABYLON.ActionManager(scene);
+                mesh.actionManager.registerAction(new BABYLON.ExecuteCodeAction(
+                    BABYLON.ActionManager.OnPointerOverTrigger,
+                    () => {
+                        hoveredMesh = mesh;
+                        canvas.style.cursor = 'pointer';
+                        mesh.scaling.copyFrom(baseScaling.scale(1.22));
+                        mesh.metadata.comicPlaneState.draw && mesh.metadata.comicPlaneState.draw(true);
+                        if (label) {
+                            label.innerHTML = `<span class="tag">${comic.category}</span><br>${comic.title}`;
+                            label.classList.add('visible');
+                        }
+                    }
+                ));
+                mesh.actionManager.registerAction(new BABYLON.ExecuteCodeAction(
+                    BABYLON.ActionManager.OnPointerOutTrigger,
+                    () => {
+                        if (hoveredMesh === mesh) hoveredMesh = null;
+                        canvas.style.cursor = '';
+                        mesh.scaling.copyFrom(baseScaling);
+                        mesh.metadata.comicPlaneState.draw && mesh.metadata.comicPlaneState.draw(false);
+                        if (label) label.classList.remove('visible');
+                    }
+                ));
+                mesh.actionManager.registerAction(new BABYLON.ExecuteCodeAction(
+                    BABYLON.ActionManager.OnPickTrigger,
+                    () => openReader(comic)
+                ));
+            });
+
+            scene.onPointerObservable.add(() => {
+                if (!hoveredMesh || !label) return;
+                label.style.left = scene.pointerX + 'px';
+                label.style.top = scene.pointerY + 'px';
+            }, BABYLON.PointerEventTypes.POINTERMOVE);
+        }
+
+        async function init() {
+            const scene = new BABYLON.Scene(engine);
+            scene.clearColor = new BABYLON.Color4(0.08, 0.08, 0.1, 1);
+
+            await BABYLON.SceneLoader.AppendAsync('./', 'comics.glb', scene);
+
+            // Laptop screen
+            let laptop = null;
+            scene.rootNodes.forEach(rn => {
+                rn.getChildMeshes && rn.getChildMeshes().forEach(cm => {
+                    if (cm.name.toLowerCase().includes('laptop') || cm.name.toLowerCase().includes('screen')) laptop = cm;
+                });
+            });
+            scene.meshes.forEach(m => {
+                if (m.name.toLowerCase().includes('laptop') || m.name.toLowerCase().includes('screen')) laptop = m;
+            });
+
+            if (laptop) {
+                const tex = new BABYLON.DynamicTexture('laptopTex', { width: 512, height: 320 }, scene, false);
+                const mat = new BABYLON.StandardMaterial('laptopMat', scene);
+                mat.diffuseTexture = tex;
+                mat.emissiveTexture = tex;
+                mat.emissiveColor = BABYLON.Color3.White();
+                mat.specularColor = BABYLON.Color3.Black();
+                laptop.material = mat;
+
+                let birdX = -60, birdY = 140, wing = 0;
+                scene.registerBeforeRender(() => {
+                    const ctx = tex.getContext();
+                    ctx.clearRect(0, 0, 512, 320);
+                    const grad = ctx.createLinearGradient(0, 0, 0, 320);
+                    grad.addColorStop(0, '#4facfe'); grad.addColorStop(1, '#00f2fe');
+                    ctx.fillStyle = grad; ctx.fillRect(0, 0, 512, 320);
+                    ctx.fillStyle = '#ffe066';
+                    ctx.beginPath(); ctx.arc(440, 60, 35, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                    for (let i = 0; i < 3; i++) {
+                        const cx = (birdX * 0.3 + i * 180) % 600 - 50;
+                        const cy = 40 + i * 25;
+                        ctx.beginPath(); ctx.ellipse(cx, cy, 40, 15, 0, 0, Math.PI * 2); ctx.fill();
+                        ctx.beginPath(); ctx.ellipse(cx + 25, cy - 8, 30, 14, 0, 0, Math.PI * 2); ctx.fill();
+                    }
+                    wing = Math.sin(Date.now() * 0.008) * 15;
+                    ctx.fillStyle = '#2d2d2d';
+                    ctx.beginPath(); ctx.ellipse(birdX, birdY, 12, 7, 0, 0, Math.PI * 2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(birdX + 14, birdY - 3, 6, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = '#e8a838';
+                    ctx.beginPath(); ctx.moveTo(birdX + 20, birdY - 4); ctx.lineTo(birdX + 28, birdY - 2); ctx.lineTo(birdX + 20, birdY); ctx.fill();
+                    ctx.fillStyle = '#fff';
+                    ctx.beginPath(); ctx.arc(birdX + 16, birdY - 5, 2.5, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = '#111';
+                    ctx.beginPath(); ctx.arc(birdX + 17, birdY - 5, 1.2, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = '#1a1a1a';
+                    ctx.beginPath(); ctx.ellipse(birdX - 3, birdY - 6 + wing * 0.05, 10, 6 + wing * 0.03, -0.3, 0, Math.PI * 2); ctx.fill();
+                    ctx.beginPath(); ctx.moveTo(birdX - 12, birdY - 2); ctx.lineTo(birdX - 22, birdY - 8 + wing * 0.05); ctx.lineTo(birdX - 20, birdY + 2); ctx.fill();
+                    birdX += 0.7;
+                    if (birdX > 560) birdX = -60;
+                    tex.update();
+                });
+            }
+            setupComicPlanes(scene);
+
+            // Lights
+            if (sceneConfig.lights) {
+                sceneConfig.lights.forEach(l => {
+                    let light;
+                    switch (l.type) {
+                        case 'DirectionalLight':
+                            light = new BABYLON.DirectionalLight(l.name, new BABYLON.Vector3(0, -1, 0), scene);
+                            break;
+                        default:
+                            light = new BABYLON.PointLight(l.name,
+                                new BABYLON.Vector3(l.position[0], l.position[1], l.position[2]), scene);
+                    }
+                    if (l.diffuse) light.diffuse = new BABYLON.Color3(l.diffuse[0], l.diffuse[1], l.diffuse[2]);
+                    if (l.intensity != null) light.intensity = l.intensity;
+                    if (l.range != null) light.range = l.range;
+                });
+            }
+
+            // Camera
+            const camCfg = sceneConfig.cameras && sceneConfig.cameras.find(c => c.name === sceneConfig.activeCamera);
+            if (camCfg) {
+                const pos = new BABYLON.Vector3(camCfg.position[0], camCfg.position[1], camCfg.position[2]);
+                const cam = new BABYLON.UniversalCamera('SceneCamera', pos, scene);
+                cam.rotation = new BABYLON.Vector3(camCfg.rotation[0], camCfg.rotation[1], camCfg.rotation[2]);
+                if (!cam.rotationQuaternion) cam.rotationQuaternion = BABYLON.Quaternion.FromEulerVector(cam.rotation);
+                cam.fov = (camCfg.fov || 0.3996) * 0.9;
+                cam.minZ = 0.05; cam.maxZ = 100; cam.speed = 0;
+                cam.inputs.removeByType('FreeCameraKeyboardMoveInput');
+                cam.attachControl(canvas, true);
+                if (cam.inputs.attached.mouse) cam.inputs.attached.mouse.buttons = [0, 1, 2];
+
+                let lastUserInput = performance.now();
+                const LIMIT = 0.2588;
+                const baseX = cam.rotation.x;
+                const baseY = cam.rotation.y;
+                scene.onPointerObservable.add((evt) => {
+                    if (evt.type === BABYLON.PointerEventTypes.POINTERMOVE) lastUserInput = performance.now();
+                });
+                scene.registerBeforeRender(() => {
+                    cam.rotation.x = Math.max(baseX - LIMIT, Math.min(baseX + LIMIT, cam.rotation.x));
+                    cam.rotation.y = Math.max(baseY - LIMIT, Math.min(baseY + LIMIT, cam.rotation.y));
+                    if (performance.now() - lastUserInput > 2000) {
+                        cam.rotation.y += Math.sin(Date.now() * 0.0004) * 0.0005;
+                        cam.rotation.y = Math.max(baseY - LIMIT, Math.min(baseY + LIMIT, cam.rotation.y));
+                    }
+                    if (cam.rotationQuaternion) cam.rotationQuaternion = BABYLON.Quaternion.FromEulerVector(cam.rotation);
+                });
+                scene.activeCamera = cam;
+            } else {
+                scene.activeCamera = new BABYLON.ArcRotateCamera('fallback', 0.45, 1.1, 8.2,
+                    new BABYLON.Vector3(4.2, 1.2, 0.35), scene);
+                scene.activeCamera.attachControl(canvas, true);
+            }
+
+            return scene;
+        }
+
+        // Show overlay immediately, let 3D load in background
+        setTimeout(() => document.getElementById('loading').classList.add('hidden'), 2000);
+
+        init().then(scene => {
+            document.getElementById('loading').classList.add('hidden');
+            engine.runRenderLoop(() => scene.render());
+        }).catch(err => {
+            document.getElementById('loading').innerHTML = '<div style="color:#e94560;font-size:14px;">Error: ' + err.message + '</div>';
+            console.error(err);
+        });
+
+        window.addEventListener('resize', () => engine.resize());
+
+        // ────────────────────────────────────────────── PROFILE / TODO
+        function renderTodoOverlay() {
+            const container = document.getElementById('profileTodoOverlay');
+            if (!container) return;
+            const todos = JSON.parse(localStorage.getItem('deco_todos') || '[]');
+            container.innerHTML = todos.map(t => `<div class="todo-item">• ${t}</div>`).join('');
+
+            const floatList = document.getElementById('decoTodoList');
+            if (floatList) floatList.innerHTML = todos.map(t => `• ${t}`).join('<br>') || '• Add item…';
+        }
+
+        function renderNameDisplay() {
+            const name = localStorage.getItem('deco_name') || '';
+            const display = document.getElementById('profileNameDisplay');
+            if (display) display.textContent = name || 'Your Name';
+            const floatName = document.getElementById('decoNameText');
+            if (floatName) floatName.textContent = name || 'Your Name';
+        }
+
+        document.addEventListener('input', (e) => {
+            if (e.target.id === 'profileNameInput') {
+                localStorage.setItem('deco_name', e.target.value);
+                renderNameDisplay();
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (e.target.id === 'todoAddBtn') {
+                const input = document.getElementById('todoInput');
+                const val = input.value.trim();
+                if (!val) return;
+                const todos = JSON.parse(localStorage.getItem('deco_todos') || '[]');
+                todos.push(val);
+                localStorage.setItem('deco_todos', JSON.stringify(todos));
+                input.value = '';
+                renderTodoOverlay();
+                renderTodoList();
+            }
+            if (e.target.classList.contains('del')) {
+                const idx = parseInt(e.target.dataset.idx);
+                const todos = JSON.parse(localStorage.getItem('deco_todos') || '[]');
+                todos.splice(idx, 1);
+                localStorage.setItem('deco_todos', JSON.stringify(todos));
+                renderTodoOverlay();
+                renderTodoList();
+            }
+        });
+
+        function renderTodoList() {
+            const container = document.getElementById('todoListContainer');
+            if (!container) return;
+            const todos = JSON.parse(localStorage.getItem('deco_todos') || '[]');
+            container.innerHTML = todos.map((t, i) =>
+                `<div class="todo-list-item"><span class="del" data-idx="${i}">✕</span>${t}</div>`
+            ).join('');
+        }
+
+        renderNameDisplay();
+        renderTodoOverlay();
+        renderTodoList();
+
+        // ── Image analysis — detect writable regions automatically ──
+        const _analysisCache = {};
+        function analyzeImage(imgSrc) {
+            if (_analysisCache[imgSrc]) return _analysisCache[imgSrc];
+            return new Promise(resolve => {
+                const img = new Image();
+                img.onload = () => {
+                    const c = document.createElement('canvas');
+                    c.width = img.naturalWidth; c.height = img.naturalHeight;
+                    const ctx = c.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    const iw = c.width, ih = c.height;
+                    const d = ctx.getImageData(0, 0, iw, ih).data;
+                    const name = imgSrc.toLowerCase();
+
+                    if (name.includes('name')) {
+                        const white = [], redRows = [];
+                        for (let y = 0; y < ih; y++) {
+                            let wc = 0, rc = 0;
+                            for (let x = 0; x < iw; x++) {
+                                const i = (y * iw + x) * 4;
+                                const r = d[i], g = d[i+1], b = d[i+2];
+                                if (r > 220 && g > 220 && b > 220) wc++;
+                                if (r > 180 && g < 100 && b < 100) rc++;
+                            }
+                            if (wc > iw * 0.3) white.push(y);
+                            if (rc > iw * 0.2) redRows.push(y);
+                        }
+                        const redBottom = redRows.length > 0 ? Math.max(...redRows) : 0;
+                        const validWhite = white.filter(y => y > redBottom);
+                        if (validWhite.length < 5) { resolve(null); return; }
+                        const top = Math.min(...validWhite);
+                        const bot = Math.max(...validWhite);
+                        let l = iw, r = 0;
+                        for (let y = top; y <= bot; y++) {
+                            for (let x = 0; x < iw; x++) {
+                                const i = (y * iw + x) * 4;
+                                if (d[i] > 220 && d[i+1] > 220 && d[i+2] > 220) {
+                                    if (x < l) l = x;
+                                    if (x > r) r = x;
+                                }
+                            }
+                        }
+                        const pad = Math.min(iw, ih) * 0.04;
+                        const result = {
+                            x: l + pad, y: top + pad,
+                            w: r - l - pad * 2, h: bot - top - pad * 2,
+                            imgW: iw, imgH: ih
+                        };
+                        _analysisCache[imgSrc] = result;
+                        resolve(result);
+                    }
+
+                    if (name.includes('to do')) {
+                        const rowBright = [];
+                        for (let y = 0; y < ih; y++) {
+                            let sum = 0;
+                            for (let x = 0; x < iw; x++) {
+                                const i = (y * iw + x) * 4;
+                                sum += 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+                            }
+                            rowBright.push(sum / iw);
+                        }
+                        const minB = Math.min(...rowBright), maxB = Math.max(...rowBright);
+                        const thresh = minB + (maxB - minB) * 0.6;
+                        const lineRows = [];
+                        for (let y = 1; y < ih - 1; y++) {
+                            if (rowBright[y] < thresh && rowBright[y] < rowBright[y-1] && rowBright[y] < rowBright[y+1]) {
+                                lineRows.push(y);
+                            }
+                        }
+                        const clusters = [];
+                        let cur = [lineRows[0]];
+                        for (let i = 1; i < lineRows.length; i++) {
+                            if (lineRows[i] - lineRows[i-1] < 5) cur.push(lineRows[i]);
+                            else { clusters.push(cur); cur = [lineRows[i]]; }
+                        }
+                        if (cur.length) clusters.push(cur);
+                        const linePositions = clusters.map(c => Math.round(c.reduce((s,v)=>s+v,0)/c.length)).sort((a,b)=>a-b);
+                        if (linePositions.length < 3) { resolve(null); return; }
+                        const spacings = [];
+                        for (let i = 1; i < linePositions.length; i++) spacings.push(linePositions[i] - linePositions[i-1]);
+                        spacings.sort((a,b)=>a-b);
+                        const medianSpace = spacings[Math.floor(spacings.length / 2)];
+                        const t = linePositions[0] - medianSpace;
+                        const b = linePositions[linePositions.length - 1] + medianSpace;
+                        let left = 0, right = iw;
+                        for (let x = 0; x < iw; x++) {
+                            let edgeCount = 0;
+                            for (let y = t; y <= b; y += 2) {
+                                const i = (y * iw + x) * 4;
+                                const g = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+                                if (g < 80) edgeCount++;
+                            }
+                            if (edgeCount > (b - t) / 2 * 0.3) { left = x; break; }
+                        }
+                        for (let x = iw - 1; x >= 0; x--) {
+                            let edgeCount = 0;
+                            for (let y = t; y <= b; y += 2) {
+                                const i = (y * iw + x) * 4;
+                                const g = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+                                if (g < 80) edgeCount++;
+                            }
+                            if (edgeCount > (b - t) / 2 * 0.3) { right = x; break; }
+                        }
+                        const result = {
+                            x: left + medianSpace * 0.5, y: t,
+                            w: right - left - medianSpace, h: b - t,
+                            lineHeight: medianSpace,
+                            imgW: iw, imgH: ih
+                        };
+                        _analysisCache[imgSrc] = result;
+                        resolve(result);
+                    }
+                    resolve(null);
+                };
+                img.onerror = () => resolve(null);
+                img.src = imgSrc;
+            });
+        }
+
+        // ────────────────────────────────────────────── LOAD EDITOR LAYOUT
+        async function loadEditorLayout() {
+            if (window.location.search.includes('editor=1')) return;
+            const container = document.getElementById('decoContainer');
+            if (!container) return;
+            container.innerHTML = '';
+            const nameRegion = await analyzeImage('name is.png');
+            const saved = localStorage.getItem('editor_layout');
+            const nameHtml = '<span style="font-family:\'Permanent Marker\',cursive;font-size:clamp(14px,2.5vw,36px);color:#000;display:flex;align-items:center;justify-content:center;height:100%;text-align:center;">Your Name</span>';
+            let els;
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    els = data.elements || [];
+                    els = els.filter(el => el.type !== 'text' && el.type !== 'todo' && !(el.imgName && el.imgName.toLowerCase().includes('to do')));
+                } catch(e) { els = []; }
+            } else {
+                els = [];
+            }
+            const nameImg = els.find(el => el.type === 'image' && el.imgName && el.imgName.toLowerCase().includes('name'));
+            if (nameImg) { nameImg.x = 0; nameImg.y = 0; }
+            if (nameImg && nameRegion) {
+                const sx = nameImg.w / nameRegion.imgW, sy = nameImg.h / nameRegion.imgH;
+                const savedPos = localStorage.getItem('editor_name_pos');
+                let tx, ty, tw, th, trot;
+                if (savedPos) {
+                    try { const p = JSON.parse(savedPos); tx = p.x; ty = p.y; tw = p.w; th = p.h; trot = p.rotation || 0; } catch(e) {}
+                }
+                els.push({
+                    x: tx != null ? tx : nameImg.x + nameRegion.x * sx,
+                    y: ty != null ? ty : nameImg.y + nameRegion.y * sy,
+                    w: tw != null ? tw : nameRegion.w * sx,
+                    h: th != null ? th : nameRegion.h * sy,
+                    rotation: trot != null ? trot : nameImg.rotation || 0,
+                    type: 'text',
+                    text: nameHtml
+                });
+            } else if (nameImg && !nameRegion) {
+                els.push({
+                    x: nameImg.x + nameImg.w * 0.2, y: nameImg.y + nameImg.h * 0.3,
+                    w: nameImg.w * 0.6, h: nameImg.h * 0.4,
+                    rotation: nameImg.rotation || 0, type: 'text', text: nameHtml
+                });
+            }
+            els.forEach(el => {
+                const div = document.createElement('div');
+                div.className = 'deco-el';
+                const rot = el.rotation ? `rotate(${el.rotation}deg)` : '';
+                div.style.cssText = `left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;transform:${rot};transform-origin:center center;`;
+                var imgName = el.imgName || '';
+                if (imgName.indexOf('data:') === 0) imgName = '';
+                div.setAttribute('data-name', imgName);
+                var isSpin = el.spin || ((imgName || el.src || '').toLowerCase().includes('_collage') || (imgName || el.src || '').toLowerCase().includes('collage'));
+                if (el.type === 'image') {
+                    if (isSpin) {
+                        div.classList.add('spin');
+                        div.innerHTML = '<div class="spin-wrap"><img src="' + el.src + '" draggable="false"></div>';
+                    } else {
+                        div.innerHTML = '<img src="' + el.src + '" draggable="false">';
+                    }
+                } else {
+                    div.innerHTML = '<div class="text-content">' + (el.text || '') + '</div>';
+                }
+                container.appendChild(div);
+            });
+        }
+        // ── Full visual editor: drag any element, add images, delete, save ──
+        function initEditor() {
+            const container = document.getElementById('decoContainer');
+            if (!container) return;
+            // ── Helpers ──
+            function getPos(e) {
+                return e.touches ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : { x: e.clientX, y: e.clientY };
+            }
+            function scanElements() {
+                const els = [];
+                container.querySelectorAll('.deco-el').forEach(function(div) {
+                    const img = div.querySelector('img');
+                    const rotStr = div.style.transform || '';
+                    const rotMatch = rotStr.match(/rotate\(([-\d.]+)deg\)/);
+                    const rotation = rotMatch ? parseFloat(rotMatch[1]) : 0;
+                    const tc = div.querySelector('.text-content');
+                    if (img) {
+                        const src = img.src;
+                        const dn = div.getAttribute('data-name') || '';
+                        const fname = dn || src.split('/').pop() || src.split('\\').pop() || '';
+                        els.push({
+                            type: 'image', x: parseInt(div.style.left) || 0, y: parseInt(div.style.top) || 0,
+                            w: div.offsetWidth, h: div.offsetHeight,
+                            rotation: rotation, src: src, imgName: fname
+                        });
+                    } else if (tc) {
+                        els.push({
+                            type: 'text', x: parseInt(div.style.left) || 0, y: parseInt(div.style.top) || 0,
+                            w: div.offsetWidth, h: div.offsetHeight,
+                            rotation: rotation,
+                            text: tc.innerHTML
+                        });
+                    }
+                });
+                return els;
+            }
+            var selectedEl = null;
+            function selectEl(el) {
+                if (selectedEl) selectedEl.style.outline = '';
+                selectedEl = el;
+                if (selectedEl) selectedEl.style.outline = '2px dashed #e94560';
+            }
+            function saveLayout() {
+                const els = scanElements();
+                // Include spin state
+                container.querySelectorAll('.deco-el').forEach(function(div, i) {
+                    if (els[i]) els[i].spin = div.classList.contains('spin') ? 1 : 0;
+                });
+                localStorage.setItem('editor_layout', JSON.stringify({ elements: els }));
+                // Also save name pos separately for index.html
+                els.forEach(function(el) {
+                    if (el.type === 'text' && el.text && el.text.includes('Your Name')) {
+                        localStorage.setItem('editor_name_pos', JSON.stringify({ x: el.x, y: el.y, w: el.w, h: el.h, rotation: el.rotation }));
+                    }
+                });
+            }
+            function addControls(el) {
+                if (!el.querySelector('.del-btn')) {
+                    const btn = document.createElement('div');
+                    btn.className = 'del-btn';
+                    btn.textContent = '×';
+                    btn.addEventListener('mousedown', function(e) { e.stopPropagation(); e._clickOnBtn = true; });
+                    btn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        e._clickOnBtn = true;
+                        el.remove();
+                        if (selectedEl === el) selectEl(null);
+                        saveLayout();
+                    });
+                    el.appendChild(btn);
+                }
+                if (!el.querySelector('.resize-handle')) {
+                    const rh = document.createElement('div');
+                    rh.className = 'resize-handle';
+                    el.appendChild(rh);
+                }
+            }
+            function makeResizable(el) {
+                var rh = el.querySelector('.resize-handle');
+                if (!rh) return;
+                var startX, startY, startW, startH, resizing = false;
+                function onDown(e) {
+                    if (e.button && e.button !== 0) return;
+                    resizing = true;
+                    el.classList.add('resizing');
+                    var p = e.touches ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : { x: e.clientX, y: e.clientY };
+                    startX = p.x; startY = p.y;
+                    startW = el.offsetWidth;
+                    startH = el.offsetHeight;
+                    e.stopPropagation();
+                    e.preventDefault();
+                }
+                function onMove(e) {
+                    if (!resizing) return;
+                    var p = e.touches ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : { x: e.clientX, y: e.clientY };
+                    var dw = p.x - startX, dh = p.y - startY;
+                    el.style.width = Math.max(30, startW + dw) + 'px';
+                    el.style.height = Math.max(30, startH + dh) + 'px';
+                    e.preventDefault();
+                }
+                function onUp() {
+                    if (!resizing) return;
+                    resizing = false;
+                    el.classList.remove('resizing');
+                    saveLayout();
+                }
+                rh.addEventListener('mousedown', function(e) { e.stopPropagation(); onDown(e); });
+                rh.addEventListener('touchstart', function(e) { e.stopPropagation(); onDown(e); }, { passive: false });
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+                document.addEventListener('touchmove', onMove, { passive: false });
+                document.addEventListener('touchend', onUp);
+                document.addEventListener('touchcancel', onUp);
+            }
+            // ── Make element draggable ──
+            function makeDraggable(el) {
+                let startX, startY, origLeft, origTop, dragging = false;
+                function onDown(e) {
+                    if (e.button && e.button !== 0) return;
+                    if (el.classList.contains('resizing')) return;
+                    dragging = true;
+                    el.classList.add('dragging');
+                    const p = getPos(e);
+                    startX = p.x; startY = p.y;
+                    origLeft = parseInt(el.style.left) || 0;
+                    origTop = parseInt(el.style.top) || 0;
+                    e.preventDefault();
+                }
+                function onMove(e) {
+                    if (!dragging) return;
+                    const p = getPos(e);
+                    el.style.left = (origLeft + p.x - startX) + 'px';
+                    el.style.top = (origTop + p.y - startY) + 'px';
+                    e.preventDefault();
+                }
+                function onUp() {
+                    if (!dragging) return;
+                    dragging = false;
+                    el.classList.remove('dragging');
+                    saveLayout();
+                }
+                el.addEventListener('mousedown', onDown);
+                el.addEventListener('touchstart', onDown, { passive: false });
+                // Document-level move/up (not on el) so we track outside the element
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+                document.addEventListener('touchmove', onMove, { passive: false });
+                document.addEventListener('touchend', onUp);
+                document.addEventListener('touchcancel', onUp);
+            }
+            // ── JS-based continuous rotation ──
+            function startSpin(el) {
+                if (el._spinId) return;
+                var angle = 0;
+                var wrap = el.querySelector('.spin-wrap');
+                if (!wrap) return;
+                function tick() {
+                    angle = (angle + 1) % 360;
+                    wrap.style.transform = 'rotate(' + angle + 'deg)';
+                    el._spinId = requestAnimationFrame(tick);
+                }
+                el._spinId = requestAnimationFrame(tick);
+            }
+            // ── Wire up existing elements ──
+            container.querySelectorAll('.deco-el').forEach(function(el) {
+                addControls(el);
+                makeDraggable(el);
+                makeResizable(el);
+                if (el.classList.contains('spin')) startSpin(el);
+                el.addEventListener('click', function(e) { if (!e._clickOnBtn) selectEl(el); });
+            });
+            // Click background to deselect
+            container.addEventListener('click', function(e) {
+                if (e.target === container || e.target.tagName === 'IFRAME') selectEl(null);
+            });
+            // ── Add image from src ──
+            function addImage(src, imgName) {
+                const div = document.createElement('div');
+                div.className = 'deco-el';
+                div.style.cssText = 'left:100px;top:100px;width:200px;height:200px;';
+                var n = (imgName || src || '').toLowerCase();
+                var isSpin = n.includes('_collage') || n.includes('collage');
+                if (isSpin) div.classList.add('spin');
+                div.setAttribute('data-name', imgName || '');
+                if (isSpin) {
+                    div.innerHTML = '<div class="spin-wrap"><img src="' + src + '" draggable="false"></div>';
+                } else {
+                    div.innerHTML = '<img src="' + src + '" draggable="false">';
+                }
+                container.appendChild(div);
+                addControls(div);
+                makeDraggable(div);
+                makeResizable(div);
+                if (isSpin) startSpin(div);
+                saveLayout();
+            }
+            // ── Toolbar wiring ──
+            var addBtn = document.getElementById('addImgBtn');
+            var dropdown = document.getElementById('imgDropdown');
+            if (addBtn && dropdown) {
+                addBtn.addEventListener('click', function() { dropdown.classList.toggle('show'); });
+                document.addEventListener('click', function(e) {
+                    if (!addBtn.contains(e.target) && !dropdown.contains(e.target)) {
+                        dropdown.classList.remove('show');
+                    }
+                });
+                dropdown.querySelectorAll('div').forEach(function(item) {
+                    item.addEventListener('click', function() {
+                        var src = item.getAttribute('data-src');
+                        dropdown.classList.remove('show');
+                        if (src) addImage(src, src);
+                    });
+                });
+            }
+            var customBtn = document.getElementById('customImgBtn');
+            var customInput = document.getElementById('customImgInput');
+            if (customBtn && customInput) {
+                customBtn.addEventListener('click', function() {
+                    var val = customInput.value.trim();
+                    if (!val) return;
+                    addImage(val, val);
+                    customInput.value = '';
+                });
+                customInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') { customBtn.click(); }
+                });
+            }
+            var saveBtn = document.getElementById('saveLayoutBtn');
+            if (saveBtn) {
+                saveBtn.addEventListener('click', function() {
+                    saveLayout();
+                    saveBtn.textContent = '✓ Saved';
+                    setTimeout(function() { saveBtn.textContent = '💾 Save'; }, 1500);
+                });
+            }
+            var spinBtn = document.getElementById('spinToggleBtn');
+            if (spinBtn) {
+                spinBtn.addEventListener('click', function() {
+                    if (!selectedEl) { spinBtn.textContent = '⚠ Select first'; setTimeout(function() { spinBtn.textContent = '🔄 Spin'; }, 1000); return; }
+                    var isSpinning = selectedEl.classList.toggle('spin');
+                    if (isSpinning) {
+                        // Ensure it has spin-wrap structure
+                        if (!selectedEl.querySelector('.spin-wrap')) {
+                            var img = selectedEl.querySelector('img');
+                            if (img) {
+                                var src = img.src;
+                                selectedEl.innerHTML = '<div class="spin-wrap"><img src="' + src + '" draggable="false"></div>';
+                            }
+                        }
+                        startSpin(selectedEl);
+                        spinBtn.textContent = '🔄 On';
+                    } else {
+                        if (selectedEl._spinId) { cancelAnimationFrame(selectedEl._spinId); selectedEl._spinId = 0; }
+                        var wrap = selectedEl.querySelector('.spin-wrap');
+                        if (wrap) {
+                            var img = wrap.querySelector('img');
+                            if (img) { selectedEl.innerHTML = ''; selectedEl.appendChild(img); }
+                        }
+                        spinBtn.textContent = '🔄 Off';
+                    }
+                    setTimeout(function() { spinBtn.textContent = '🔄 Spin'; }, 1200);
+                    saveLayout();
+                });
+            }
+            var uploadBtn = document.getElementById('uploadBtn');
+            var fileInput = document.getElementById('fileInput');
+            if (uploadBtn && fileInput) {
+                uploadBtn.addEventListener('click', function() { fileInput.click(); });
+                fileInput.addEventListener('change', function() {
+                    var file = fileInput.files[0];
+                    if (!file) return;
+                    var reader = new FileReader();
+                    reader.onload = function(e) {
+                        var dataUrl = e.target.result;
+                        addImage(dataUrl, file.name);
+                        fileInput.value = '';
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+        }
+        loadEditorLayout().then(initEditor);
+    </script>
+    
+    <script>
+    (function(){
+        const img = document.querySelector('.overlay-title-img');
+        if(!img) return;
+        // Preserve original PNG when it's heading.png or fin.png — do not modify or re-encode it
+        const src = (img.getAttribute && img.getAttribute('src')) || '';
+        if (/(?:heading|fin)\.png$/i.test(src)) return;
+        function removeWhiteBg(){
+            const w = img.naturalWidth, h = img.naturalHeight;
+            if(!w || !h) return;
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img,0,0);
+            try{
+                const id = ctx.getImageData(0,0,w,h);
+                const d = id.data;
+                const thresh = 245;
+                for(let i=0;i<d.length;i+=4){
+                    const r=d[i], g=d[i+1], b=d[i+2], a=d[i+3];
+                    if(a>0 && r>=thresh && g>=thresh && b>=thresh){
+                        d[i+3]=0;
+                    }
+                }
+                ctx.putImageData(id,0,0);
+                img.src = canvas.toDataURL('image/png');
+            }catch(e){
+                console.warn('Image processing skipped (CORS or other):', e);
+            }
+        }
+        if(img.complete) removeWhiteBg(); else img.addEventListener('load', removeWhiteBg);
+    })();
+    </script>
+<script>
+    // Hide deco panels and stop heavy 3D when in editor iframe
+    if (location.search.includes('editor=1')) {
+        document.querySelectorAll('.deco-panel').forEach(el => el.style.display = 'none');
+        document.getElementById('overlay') && (document.getElementById('overlay').style.display = 'none');
+        document.getElementById('renderCanvas') && (document.getElementById('renderCanvas').style.display = 'none');
+        document.getElementById('loading') && (document.getElementById('loading').style.display = 'none');
+    }
+</script>
+</body>
+</html>

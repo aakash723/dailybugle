@@ -1,0 +1,17 @@
+# Ignore most PDFs — served from MEGA for speed
+comics/**/*.pdf
+
+# But keep small ones locally for instant loading
+!comics/dc/superman/Absolute Superman 020.pdf
+!comics/dc/superman/Superman (2016) 1#.pdf
+!comics/dc/raven/Raven (2016) 1#.pdf
+!comics/marvel/jessica-jones/Jessica Jones (2016) 1#.pdf
+!comics/dc/batman/Batman (2025) 1#.pdf
+!comics/marvel/marvel-now/marvel-now-point-one.pdf
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
