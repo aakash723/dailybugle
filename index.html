@@ -1349,7 +1349,7 @@
             const scene = new BABYLON.Scene(engine);
             scene.clearColor = new BABYLON.Color4(0.08, 0.08, 0.1, 1);
 
-            await BABYLON.SceneLoader.AppendAsync('./', 'comics.glb', scene);
+            try { await BABYLON.SceneLoader.AppendAsync('./', 'comics.glb', scene); } catch (e) { console.warn('3D model not loaded:', e); }
 
             // Laptop screen
             let laptop = null;
