@@ -489,7 +489,7 @@
     
     <script>
         // ────────────────────────────────────────────── PDF COMICS ENGINE
-        const COMICS_DIR = './comics/';
+        const COMICS_DIR = './all_comics/';
         const pdfCache = new Map();
 
         function comicURL(filename) { 
@@ -1528,7 +1528,11 @@
             const scene = new BABYLON.Scene(engine);
             scene.clearColor = new BABYLON.Color4(0.08, 0.08, 0.1, 1);
 
-            await BABYLON.SceneLoader.AppendAsync('./', 'comics.glb', scene);
+            try {
+                await BABYLON.SceneLoader.AppendAsync('./', 'comics.glb', scene);
+            } catch (err) {
+                console.warn('Could not load comics.glb; continuing without 3D scene.', err);
+            }
 
             // Laptop screen
             let laptop = null;
