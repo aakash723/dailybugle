@@ -1675,16 +1675,16 @@
             const nameRegion = await analyzeImage('name is.png');
             const saved = localStorage.getItem('editor_layout');
             const nameHtml = '<span style="font-family:\'Permanent Marker\',cursive;font-size:clamp(14px,2.5vw,36px);color:#000;display:flex;align-items:center;justify-content:center;height:100%;text-align:center;">Your Name</span>';
+            const DEFAULT_LAYOUT = {"elements":[{"id":1,"type":"image","x":97,"y":103,"w":264,"h":255,"rotation":25.1262445910211,"src":"name is.png","imgName":"name is.png"},{"id":2,"type":"image","x":179,"y":279,"w":320,"h":320,"rotation":-11.743249337349425,"src":"to do.png","imgName":"to do.png"},{"id":3,"type":"text","x":1020,"y":0,"w":160,"h":50,"rotation":30,"text":"<span style=\"font-family:'Permanent Marker',cursive;font-size:32px;color:#000;display:flex;align-items:center;justify-content:center;height:100%;\">Your Name</span>"},{"id":4,"type":"text","x":139,"y":211,"w":131,"h":56,"rotation":27.480312944357138,"text":"Edit me…"},{"id":5,"type":"text","x":190,"y":323,"w":280,"h":80,"rotation":-39.09692211345069,"text":"Edit me…"}]};
             let els;
             if (saved) {
                 try {
                     const data = JSON.parse(saved);
                     els = data.elements || [];
-                    // Keep all images except todo, remove old text
                     els = els.filter(el => (el.type === 'image' && !(el.imgName && el.imgName.toLowerCase().includes('to do'))));
-                } catch(e) { els = []; }
+                } catch(e) { els = DEFAULT_LAYOUT.elements.filter(el => (el.type === 'image' && !(el.imgName && el.imgName.toLowerCase().includes('to do')))); }
             } else {
-                els = [];
+                els = DEFAULT_LAYOUT.elements.filter(el => (el.type === 'image' && !(el.imgName && el.imgName.toLowerCase().includes('to do'))));
             }
             const nameImg = els.find(el => el.type === 'image' && el.imgName && el.imgName.toLowerCase().includes('name'));
             if (nameImg) { nameImg.x = 0; nameImg.y = 0; }
