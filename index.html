@@ -403,9 +403,9 @@
                 const mf = megaEntries.find(function(c) { return c.filename === filename; });
                 if (mf && mf._megaFile) {
                     var blobUrl = await MegaService.getPdfSource(mf._megaFile);
-                    var pdf = await pdfjsLib.getDocument(blobUrl).promise;
-                    pdfCache.set(filename, pdf);
-                    return pdf;
+                    var megaPdf = await pdfjsLib.getDocument(blobUrl).promise;
+                    pdfCache.set(filename, megaPdf);
+                    return megaPdf;
                 }
             }
             const pdf = await pdfjsLib.getDocument(comicURL(filename)).promise;
