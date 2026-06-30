@@ -1,1 +1,6 @@
-all_comics/
+
+*.zip
+*.py
+*.ps1
+dd.png.kra
+desktop.ini
