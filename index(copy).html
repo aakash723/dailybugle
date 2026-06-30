@@ -325,26 +325,9 @@
         .todo-list-item .del { cursor: pointer; color: #e94560; font-weight: bold; font-family: sans-serif; }
 
         #decoContainer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 20; }
-        #decoContainer .deco-el { position: absolute; pointer-events: auto; cursor: move; user-select: none; }
+        #decoContainer .deco-el { position: absolute; pointer-events: auto; }
         #decoContainer .deco-el img { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; }
         #decoContainer .deco-el .text-content { width: 100%; height: 100%; overflow: hidden; font-family: 'Comic Sans MS', 'Comic Sans', cursive; }
-        #decoContainer .deco-el .del-btn { position: absolute; top: -10px; right: -10px; width: 22px; height: 22px; border-radius: 50%; background: #e94560; color: #fff; border: 2px solid #fff; font-size: 14px; line-height: 18px; text-align: center; cursor: pointer; z-index: 5; display: none; }
-        #decoContainer .deco-el:hover .del-btn { display: block; }
-        #decoContainer .deco-el .resize-handle { position: absolute; bottom: -6px; right: -6px; width: 14px; height: 14px; border-radius: 2px; background: #e94560; border: 2px solid #fff; cursor: nwse-resize; z-index: 5; display: none; }
-        #decoContainer .deco-el:hover .resize-handle { display: block; }
-        .deco-el.spin .spin-wrap { width: 100%; height: 100%; }
-        .deco-el.spin .spin-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
-        #decoContainer .deco-el.dragging { opacity: 0.85; z-index: 100; }
-        #decoContainer .deco-el.resizing { opacity: 0.85; z-index: 100; }
-        #editorToolbar { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; gap: 8px; align-items: center; background: rgba(10,8,20,0.9); padding: 10px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); }
-        #editorToolbar button { background: #e94560; color: #fff; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
-        #editorToolbar button:hover { background: #d63850; }
-        #editorToolbar input[type="text"] { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 13px; width: 140px; }
-        #editorToolbar .img-picker { position: relative; }
-        #editorToolbar .img-picker .dropdown { display: none; position: absolute; bottom: 100%; left: 0; margin-bottom: 4px; background: rgba(10,8,20,0.95); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 6px; min-width: 160px; max-height: 200px; overflow-y: auto; }
-        #editorToolbar .img-picker .dropdown.show { display: block; }
-        #editorToolbar .img-picker .dropdown div { padding: 6px 10px; cursor: pointer; color: #ccc; font-size: 13px; border-radius: 4px; }
-        #editorToolbar .img-picker .dropdown div:hover { background: rgba(233,69,96,0.3); color: #fff; }
         #viewPanel:not(.inactive) ~ #decoContainer { display: none; }
     </style>
 </head>
@@ -383,22 +366,6 @@
         </div>
     </div>
     <div id="decoContainer"></div>
-    <div id="editorToolbar">
-        <div class="img-picker">
-            <button id="addImgBtn">+ Add Image</button>
-            <div class="dropdown" id="imgDropdown">
-                <div data-src="name is.png">name is.png</div>
-                <div data-src="fin.png">fin.png</div>
-                <div data-src="heading.png">heading.png</div>
-            </div>
-        </div>
-        <input type="text" id="customImgInput" placeholder="filename.png" title="Enter a filename from the server">
-        <button id="customImgBtn">Add</button>
-        <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp" hidden>
-        <button id="uploadBtn">📁 From PC</button>
-        <button id="spinToggleBtn">🔄 Spin</button>
-        <button id="saveLayoutBtn">💾 Save</button>
-    </div>
     <div id="planeComicLabel" aria-hidden="true"></div>
     <canvas id="renderCanvas"></canvas>
 
@@ -1238,7 +1205,7 @@
             const scene = new BABYLON.Scene(engine);
             scene.clearColor = new BABYLON.Color4(0.08, 0.08, 0.1, 1);
 
-            try { await BABYLON.SceneLoader.AppendAsync('./', 'comics.glb', scene); } catch (e) { console.warn('3D model not loaded:', e); }
+            await BABYLON.SceneLoader.AppendAsync('./', 'comics.glb', scene);
 
             // Laptop screen
             let laptop = null;
@@ -1427,516 +1394,76 @@
         renderTodoOverlay();
         renderTodoList();
 
-        // ── Image analysis — detect writable regions automatically ──
-        const _analysisCache = {};
-        function analyzeImage(imgSrc) {
-            if (_analysisCache[imgSrc]) return _analysisCache[imgSrc];
-            return new Promise(resolve => {
-                const img = new Image();
-                img.onload = () => {
-                    const c = document.createElement('canvas');
-                    c.width = img.naturalWidth; c.height = img.naturalHeight;
-                    const ctx = c.getContext('2d');
-                    ctx.drawImage(img, 0, 0);
-                    const iw = c.width, ih = c.height;
-                    const d = ctx.getImageData(0, 0, iw, ih).data;
-                    const name = imgSrc.toLowerCase();
-
-                    if (name.includes('name')) {
-                        const white = [], redRows = [];
-                        for (let y = 0; y < ih; y++) {
-                            let wc = 0, rc = 0;
-                            for (let x = 0; x < iw; x++) {
-                                const i = (y * iw + x) * 4;
-                                const r = d[i], g = d[i+1], b = d[i+2];
-                                if (r > 220 && g > 220 && b > 220) wc++;
-                                if (r > 180 && g < 100 && b < 100) rc++;
-                            }
-                            if (wc > iw * 0.3) white.push(y);
-                            if (rc > iw * 0.2) redRows.push(y);
-                        }
-                        const redBottom = redRows.length > 0 ? Math.max(...redRows) : 0;
-                        const validWhite = white.filter(y => y > redBottom);
-                        if (validWhite.length < 5) { resolve(null); return; }
-                        const top = Math.min(...validWhite);
-                        const bot = Math.max(...validWhite);
-                        let l = iw, r = 0;
-                        for (let y = top; y <= bot; y++) {
-                            for (let x = 0; x < iw; x++) {
-                                const i = (y * iw + x) * 4;
-                                if (d[i] > 220 && d[i+1] > 220 && d[i+2] > 220) {
-                                    if (x < l) l = x;
-                                    if (x > r) r = x;
-                                }
-                            }
-                        }
-                        const pad = Math.min(iw, ih) * 0.04;
-                        const result = {
-                            x: l + pad, y: top + pad,
-                            w: r - l - pad * 2, h: bot - top - pad * 2,
-                            imgW: iw, imgH: ih
-                        };
-                        _analysisCache[imgSrc] = result;
-                        resolve(result);
-                    }
-
-                    if (name.includes('to do')) {
-                        const rowBright = [];
-                        for (let y = 0; y < ih; y++) {
-                            let sum = 0;
-                            for (let x = 0; x < iw; x++) {
-                                const i = (y * iw + x) * 4;
-                                sum += 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
-                            }
-                            rowBright.push(sum / iw);
-                        }
-                        const minB = Math.min(...rowBright), maxB = Math.max(...rowBright);
-                        const thresh = minB + (maxB - minB) * 0.6;
-                        const lineRows = [];
-                        for (let y = 1; y < ih - 1; y++) {
-                            if (rowBright[y] < thresh && rowBright[y] < rowBright[y-1] && rowBright[y] < rowBright[y+1]) {
-                                lineRows.push(y);
-                            }
-                        }
-                        const clusters = [];
-                        let cur = [lineRows[0]];
-                        for (let i = 1; i < lineRows.length; i++) {
-                            if (lineRows[i] - lineRows[i-1] < 5) cur.push(lineRows[i]);
-                            else { clusters.push(cur); cur = [lineRows[i]]; }
-                        }
-                        if (cur.length) clusters.push(cur);
-                        const linePositions = clusters.map(c => Math.round(c.reduce((s,v)=>s+v,0)/c.length)).sort((a,b)=>a-b);
-                        if (linePositions.length < 3) { resolve(null); return; }
-                        const spacings = [];
-                        for (let i = 1; i < linePositions.length; i++) spacings.push(linePositions[i] - linePositions[i-1]);
-                        spacings.sort((a,b)=>a-b);
-                        const medianSpace = spacings[Math.floor(spacings.length / 2)];
-                        const t = linePositions[0] - medianSpace;
-                        const b = linePositions[linePositions.length - 1] + medianSpace;
-                        let left = 0, right = iw;
-                        for (let x = 0; x < iw; x++) {
-                            let edgeCount = 0;
-                            for (let y = t; y <= b; y += 2) {
-                                const i = (y * iw + x) * 4;
-                                const g = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
-                                if (g < 80) edgeCount++;
-                            }
-                            if (edgeCount > (b - t) / 2 * 0.3) { left = x; break; }
-                        }
-                        for (let x = iw - 1; x >= 0; x--) {
-                            let edgeCount = 0;
-                            for (let y = t; y <= b; y += 2) {
-                                const i = (y * iw + x) * 4;
-                                const g = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
-                                if (g < 80) edgeCount++;
-                            }
-                            if (edgeCount > (b - t) / 2 * 0.3) { right = x; break; }
-                        }
-                        const result = {
-                            x: left + medianSpace * 0.5, y: t,
-                            w: right - left - medianSpace, h: b - t,
-                            lineHeight: medianSpace,
-                            imgW: iw, imgH: ih
-                        };
-                        _analysisCache[imgSrc] = result;
-                        resolve(result);
-                    }
-                    resolve(null);
-                };
-                img.onerror = () => resolve(null);
-                img.src = imgSrc;
-            });
-        }
-
         // ────────────────────────────────────────────── LOAD EDITOR LAYOUT
-        async function loadEditorLayout() {
+        function loadEditorLayout() {
+            if (window.location.search.includes('editor=1')) return;
             const container = document.getElementById('decoContainer');
             if (!container) return;
             container.innerHTML = '';
-            const nameRegion = await analyzeImage('name is.png');
             const saved = localStorage.getItem('editor_layout');
-            const nameHtml = '<span style="font-family:\'Permanent Marker\',cursive;font-size:clamp(14px,2.5vw,36px);color:#000;display:flex;align-items:center;justify-content:center;height:100%;text-align:center;">Your Name</span>';
-            let els, layoutSource;
-            if (saved) {
-                try {
-                    const data = JSON.parse(saved);
-                    els = data.elements || [];
-                    layoutSource = 'localStorage';
-                } catch(e) {}
+            if (!saved) {
+                renderDefaultDeco(container);
+                return;
             }
-            if (!els || !els.length) {
-                try {
-                    const res = await fetch('layout.json');
-                    if (res.ok) {
-                        const data = await res.json();
-                        els = data.elements || [];
-                        layoutSource = 'layout.json';
+            try {
+                const data = JSON.parse(saved);
+                let els = data.elements || [];
+                // Remove text elements with "Your Name" or "Edit Text" or on far right
+                els = els.filter(el => {
+                    if (el.type === 'text') {
+                        const txt = (el.text || '').toLowerCase();
+                        if (txt.includes('your name') || txt.includes('edit text') || el.x > 500) return false;
                     }
-                } catch(e) {}
-            }
-            if (!els || !els.length) {
-                els = [];
-                layoutSource = 'empty';
-            }
-            if (layoutSource !== 'layout.json') {
-                els = els.filter(el => el.type !== 'text' && el.type !== 'todo' && !(el.imgName && el.imgName.toLowerCase().includes('to do')));
-            }
-            const nameImg = els.find(el => el.type === 'image' && el.imgName && el.imgName.toLowerCase().includes('name'));
-            if (nameImg) { nameImg.x = 0; nameImg.y = 0; }
-            if (nameImg && nameRegion) {
-                const sx = nameImg.w / nameRegion.imgW, sy = nameImg.h / nameRegion.imgH;
-                const savedPos = localStorage.getItem('editor_name_pos');
-                let tx, ty, tw, th, trot;
-                if (savedPos) {
-                    try { const p = JSON.parse(savedPos); tx = p.x; ty = p.y; tw = p.w; th = p.h; trot = p.rotation || 0; } catch(e) {}
+                    return true;
+                });
+                // Add name text overlay on "name is" image
+                const nameImg = els.find(el => el.type === 'image' && el.imgName && el.imgName.toLowerCase().includes('name'));
+                if (nameImg) {
+                    els.push({
+                        x: nameImg.x + nameImg.w * 0.1,
+                        y: nameImg.y + nameImg.h * 0.32,
+                        w: nameImg.w * 0.78,
+                        h: nameImg.h * 0.35,
+                        rotation: nameImg.rotation || 0,
+                        type: 'text',
+                        text: '<span style="font-family:\'Permanent Marker\',cursive;font-size:clamp(14px,2.5vw,36px);color:#000;display:flex;align-items:center;justify-content:center;height:100%;text-align:center;">Your Name</span>'
+                    });
                 }
-                els.push({
-                    x: tx != null ? tx : nameImg.x + nameRegion.x * sx,
-                    y: ty != null ? ty : nameImg.y + nameRegion.y * sy,
-                    w: tw != null ? tw : nameRegion.w * sx,
-                    h: th != null ? th : nameRegion.h * sy,
-                    rotation: trot != null ? trot : nameImg.rotation || 0,
-                    type: 'text',
-                    text: nameHtml
+                els.forEach(el => {
+                    const div = document.createElement('div');
+                    div.className = 'deco-el';
+                    const rot = el.rotation ? `rotate(${el.rotation}deg)` : '';
+                    div.style.cssText = `left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;transform:${rot};transform-origin:center center;`;
+                    if (el.type === 'image') {
+                        div.innerHTML = `<img src="${el.src}" draggable="false">`;
+                    } else {
+                        div.innerHTML = `<div class="text-content">${el.text || ''}</div>`;
+                    }
+                    container.appendChild(div);
                 });
-            } else if (nameImg && !nameRegion) {
-                els.push({
-                    x: nameImg.x + nameImg.w * 0.2, y: nameImg.y + nameImg.h * 0.3,
-                    w: nameImg.w * 0.6, h: nameImg.h * 0.4,
-                    rotation: nameImg.rotation || 0, type: 'text', text: nameHtml
-                });
-            }
+            } catch(e) { console.warn('Layout load error:', e); }
+        }
+        function renderDefaultDeco(container) {
+            const nameHtml = '<span style="font-family:\'Permanent Marker\',cursive;font-size:clamp(14px,2.5vw,36px);color:#000;display:flex;align-items:center;justify-content:center;height:100%;text-align:center;">Your Name</span>';
+            const els = [
+                { type: 'image', x: 880, y: 20, w: 300, h: 300, rotation: 30, src: 'name is.png', imgName: 'name is.png' },
+                { type: 'image', x: 840, y: 150, w: 320, h: 320, rotation: -60, src: 'to do.png', imgName: 'to do.png' },
+                { type: 'text', x: 910, y: 116, w: 234, h: 105, rotation: 30, text: nameHtml }
+            ];
             els.forEach(el => {
                 const div = document.createElement('div');
                 div.className = 'deco-el';
                 const rot = el.rotation ? `rotate(${el.rotation}deg)` : '';
                 div.style.cssText = `left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;transform:${rot};transform-origin:center center;`;
-                var imgName = el.imgName || '';
-                if (imgName.indexOf('data:') === 0) imgName = '';
-                div.setAttribute('data-name', imgName);
-                var isSpin = el.spin || ((imgName || el.src || '').toLowerCase().includes('_collage') || (imgName || el.src || '').toLowerCase().includes('collage'));
                 if (el.type === 'image') {
-                    if (isSpin) {
-                        div.classList.add('spin');
-                        div.innerHTML = '<div class="spin-wrap"><img src="' + el.src + '" draggable="false"></div>';
-                    } else {
-                        div.innerHTML = '<img src="' + el.src + '" draggable="false">';
-                    }
+                    div.innerHTML = `<img src="${el.src}" draggable="false">`;
                 } else {
-                    div.innerHTML = '<div class="text-content">' + (el.text || '') + '</div>';
+                    div.innerHTML = `<div class="text-content">${el.text || ''}</div>`;
                 }
                 container.appendChild(div);
             });
         }
-        // ── Full visual editor: drag any element, add images, delete, save ──
-        function initEditor() {
-            const container = document.getElementById('decoContainer');
-            if (!container) return;
-            // ── Helpers ──
-            function getPos(e) {
-                return e.touches ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : { x: e.clientX, y: e.clientY };
-            }
-            function scanElements() {
-                const els = [];
-                container.querySelectorAll('.deco-el').forEach(function(div) {
-                    const img = div.querySelector('img');
-                    const rotStr = div.style.transform || '';
-                    const rotMatch = rotStr.match(/rotate\(([-\d.]+)deg\)/);
-                    const rotation = rotMatch ? parseFloat(rotMatch[1]) : 0;
-                    const tc = div.querySelector('.text-content');
-                    if (img) {
-                        const src = img.src;
-                        const dn = div.getAttribute('data-name') || '';
-                        const fname = dn || src.split('/').pop() || src.split('\\').pop() || '';
-                        els.push({
-                            type: 'image', x: parseInt(div.style.left) || 0, y: parseInt(div.style.top) || 0,
-                            w: div.offsetWidth, h: div.offsetHeight,
-                            rotation: rotation, src: src, imgName: fname
-                        });
-                    } else if (tc) {
-                        els.push({
-                            type: 'text', x: parseInt(div.style.left) || 0, y: parseInt(div.style.top) || 0,
-                            w: div.offsetWidth, h: div.offsetHeight,
-                            rotation: rotation,
-                            text: tc.innerHTML
-                        });
-                    }
-                });
-                return els;
-            }
-            var selectedEl = null;
-            function selectEl(el) {
-                if (selectedEl) selectedEl.style.outline = '';
-                selectedEl = el;
-                if (selectedEl) selectedEl.style.outline = '2px dashed #e94560';
-            }
-            function saveLayout() {
-                const els = scanElements();
-                // Include spin state
-                container.querySelectorAll('.deco-el').forEach(function(div, i) {
-                    if (els[i]) els[i].spin = div.classList.contains('spin') ? 1 : 0;
-                });
-                fetch('/save-layout', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ elements: els })
-                }).then(() => {
-                    console.log('Layout saved to server');
-                }).catch(e => console.error('Save failed:', e));
-                // Also save name pos separately for index.html
-                els.forEach(function(el) {
-                    if (el.type === 'text' && el.text && el.text.includes('Your Name')) {
-                        localStorage.setItem('editor_name_pos', JSON.stringify({ x: el.x, y: el.y, w: el.w, h: el.h, rotation: el.rotation }));
-                    }
-                });
-            }
-            function addControls(el) {
-                if (!el.querySelector('.del-btn')) {
-                    const btn = document.createElement('div');
-                    btn.className = 'del-btn';
-                    btn.textContent = '×';
-                    btn.addEventListener('mousedown', function(e) { e.stopPropagation(); e._clickOnBtn = true; });
-                    btn.addEventListener('click', function(e) {
-                        e.stopPropagation();
-                        e._clickOnBtn = true;
-                        el.remove();
-                        if (selectedEl === el) selectEl(null);
-                        saveLayout();
-                    });
-                    el.appendChild(btn);
-                }
-                if (!el.querySelector('.resize-handle')) {
-                    const rh = document.createElement('div');
-                    rh.className = 'resize-handle';
-                    el.appendChild(rh);
-                }
-            }
-            function makeResizable(el) {
-                var rh = el.querySelector('.resize-handle');
-                if (!rh) return;
-                var startX, startY, startW, startH, resizing = false;
-                function onDown(e) {
-                    if (e.button && e.button !== 0) return;
-                    resizing = true;
-                    el.classList.add('resizing');
-                    var p = e.touches ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : { x: e.clientX, y: e.clientY };
-                    startX = p.x; startY = p.y;
-                    startW = el.offsetWidth;
-                    startH = el.offsetHeight;
-                    e.stopPropagation();
-                    e.preventDefault();
-                }
-                function onMove(e) {
-                    if (!resizing) return;
-                    var p = e.touches ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : { x: e.clientX, y: e.clientY };
-                    var dw = p.x - startX, dh = p.y - startY;
-                    el.style.width = Math.max(30, startW + dw) + 'px';
-                    el.style.height = Math.max(30, startH + dh) + 'px';
-                    e.preventDefault();
-                }
-                function onUp() {
-                    if (!resizing) return;
-                    resizing = false;
-                    el.classList.remove('resizing');
-                    saveLayout();
-                }
-                rh.addEventListener('mousedown', function(e) { e.stopPropagation(); onDown(e); });
-                rh.addEventListener('touchstart', function(e) { e.stopPropagation(); onDown(e); }, { passive: false });
-                document.addEventListener('mousemove', onMove);
-                document.addEventListener('mouseup', onUp);
-                document.addEventListener('touchmove', onMove, { passive: false });
-                document.addEventListener('touchend', onUp);
-                document.addEventListener('touchcancel', onUp);
-            }
-            // ── Make element draggable ──
-            function makeDraggable(el) {
-                let startX, startY, origLeft, origTop, dragging = false;
-                function onDown(e) {
-                    if (e.button && e.button !== 0) return;
-                    if (el.classList.contains('resizing')) return;
-                    dragging = true;
-                    el.classList.add('dragging');
-                    const p = getPos(e);
-                    startX = p.x; startY = p.y;
-                    origLeft = parseInt(el.style.left) || 0;
-                    origTop = parseInt(el.style.top) || 0;
-                    e.preventDefault();
-                }
-                function onMove(e) {
-                    if (!dragging) return;
-                    const p = getPos(e);
-                    el.style.left = (origLeft + p.x - startX) + 'px';
-                    el.style.top = (origTop + p.y - startY) + 'px';
-                    e.preventDefault();
-                }
-                function onUp() {
-                    if (!dragging) return;
-                    dragging = false;
-                    el.classList.remove('dragging');
-                    saveLayout();
-                }
-                el.addEventListener('mousedown', onDown);
-                el.addEventListener('touchstart', onDown, { passive: false });
-                // Document-level move/up (not on el) so we track outside the element
-                document.addEventListener('mousemove', onMove);
-                document.addEventListener('mouseup', onUp);
-                document.addEventListener('touchmove', onMove, { passive: false });
-                document.addEventListener('touchend', onUp);
-                document.addEventListener('touchcancel', onUp);
-            }
-            // ── JS-based continuous rotation ──
-            function startSpin(el) {
-                if (el._spinId) return;
-                var angle = 0;
-                var wrap = el.querySelector('.spin-wrap');
-                if (!wrap) return;
-                function tick() {
-                    angle = (angle + 1) % 360;
-                    wrap.style.transform = 'rotate(' + angle + 'deg)';
-                    el._spinId = requestAnimationFrame(tick);
-                }
-                el._spinId = requestAnimationFrame(tick);
-            }
-            // ── Wire up existing elements ──
-            container.querySelectorAll('.deco-el').forEach(function(el) {
-                addControls(el);
-                makeDraggable(el);
-                makeResizable(el);
-                if (el.classList.contains('spin')) startSpin(el);
-                el.addEventListener('click', function(e) { if (!e._clickOnBtn) selectEl(el); });
-            });
-            // Click background to deselect
-            container.addEventListener('click', function(e) {
-                if (e.target === container || e.target.tagName === 'IFRAME') selectEl(null);
-            });
-            // ── Add image from src ──
-            function addImage(src, imgName) {
-                const div = document.createElement('div');
-                div.className = 'deco-el';
-                div.style.cssText = 'left:100px;top:100px;width:200px;height:200px;';
-                var n = (imgName || src || '').toLowerCase();
-                var isSpin = n.includes('_collage') || n.includes('collage');
-                if (isSpin) div.classList.add('spin');
-                div.setAttribute('data-name', imgName || '');
-                if (isSpin) {
-                    div.innerHTML = '<div class="spin-wrap"><img src="' + src + '" draggable="false"></div>';
-                } else {
-                    div.innerHTML = '<img src="' + src + '" draggable="false">';
-                }
-                container.appendChild(div);
-                addControls(div);
-                makeDraggable(div);
-                makeResizable(div);
-                if (isSpin) startSpin(div);
-                saveLayout();
-            }
-            // ── Toolbar wiring ──
-            var addBtn = document.getElementById('addImgBtn');
-            var dropdown = document.getElementById('imgDropdown');
-            if (addBtn && dropdown) {
-                addBtn.addEventListener('click', function() { dropdown.classList.toggle('show'); });
-                document.addEventListener('click', function(e) {
-                    if (!addBtn.contains(e.target) && !dropdown.contains(e.target)) {
-                        dropdown.classList.remove('show');
-                    }
-                });
-                dropdown.querySelectorAll('div').forEach(function(item) {
-                    item.addEventListener('click', function() {
-                        var src = item.getAttribute('data-src');
-                        dropdown.classList.remove('show');
-                        if (src) addImage(src, src);
-                    });
-                });
-            }
-            var customBtn = document.getElementById('customImgBtn');
-            var customInput = document.getElementById('customImgInput');
-            if (customBtn && customInput) {
-                customBtn.addEventListener('click', function() {
-                    var val = customInput.value.trim();
-                    if (!val) return;
-                    addImage(val, val);
-                    customInput.value = '';
-                });
-                customInput.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter') { customBtn.click(); }
-                });
-            }
-            var saveBtn = document.getElementById('saveLayoutBtn');
-            if (saveBtn) {
-                saveBtn.addEventListener('click', function() {
-                    saveLayout();
-                    var data = JSON.parse(localStorage.getItem('editor_layout') || '{"elements":[]}');
-                    var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                    var url = URL.createObjectURL(blob);
-                    var a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'layout.json';
-                    a.style.display = 'none';
-                    document.body.appendChild(a);
-                    a.click();
-                    setTimeout(function() {
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                    }, 1000);
-                    saveBtn.textContent = '✓ Saved';
-                    setTimeout(function() { saveBtn.textContent = '💾 Save'; }, 1500);
-                });
-            }
-            var spinBtn = document.getElementById('spinToggleBtn');
-            if (spinBtn) {
-                spinBtn.addEventListener('click', function() {
-                    if (!selectedEl) { spinBtn.textContent = '⚠ Select first'; setTimeout(function() { spinBtn.textContent = '🔄 Spin'; }, 1000); return; }
-                    var isSpinning = selectedEl.classList.toggle('spin');
-                    if (isSpinning) {
-                        // Ensure it has spin-wrap structure
-                        if (!selectedEl.querySelector('.spin-wrap')) {
-                            var img = selectedEl.querySelector('img');
-                            if (img) {
-                                var src = img.src;
-                                selectedEl.innerHTML = '<div class="spin-wrap"><img src="' + src + '" draggable="false"></div>';
-                            }
-                        }
-                        startSpin(selectedEl);
-                        spinBtn.textContent = '🔄 On';
-                    } else {
-                        if (selectedEl._spinId) { cancelAnimationFrame(selectedEl._spinId); selectedEl._spinId = 0; }
-                        var wrap = selectedEl.querySelector('.spin-wrap');
-                        if (wrap) {
-                            var img = wrap.querySelector('img');
-                            if (img) { selectedEl.innerHTML = ''; selectedEl.appendChild(img); }
-                        }
-                        spinBtn.textContent = '🔄 Off';
-                    }
-                    setTimeout(function() { spinBtn.textContent = '🔄 Spin'; }, 1200);
-                    saveLayout();
-                });
-            }
-            var uploadBtn = document.getElementById('uploadBtn');
-            var fileInput = document.getElementById('fileInput');
-            if (uploadBtn && fileInput) {
-                uploadBtn.addEventListener('click', function() { fileInput.click(); });
-                fileInput.addEventListener('change', function() {
-                    var file = fileInput.files[0];
-                    if (!file) return;
-                    var reader = new FileReader();
-                    reader.onload = function(e) {
-                        var dataUrl = e.target.result;
-                        addImage(dataUrl, file.name);
-                        fileInput.value = '';
-                    };
-                    reader.readAsDataURL(file);
-                });
-            }
-        }
-        Promise.all([loadEditorLayout(), init()]).then((results) => {
-            const scene = results[1];
-            document.getElementById('loading').classList.add('hidden');
-            engine.runRenderLoop(() => scene.render());
-            initEditor();
-        }).catch(err => {
-            console.error('Init error:', err);
-            document.getElementById('loading').innerHTML = 'Error: ' + err.message;
-        });
+        loadEditorLayout();
     </script>
     
     <script>

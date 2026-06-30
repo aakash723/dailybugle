@@ -1,0 +1,70 @@
+{
+  "elements": [
+    {
+      "type": "image",
+      "x": -90,
+      "y": -3,
+      "w": 614,
+      "h": 643,
+      "rotation": 0,
+      "src": "The_Spectacular_Spider-Man_1968-removebg-preview.png",
+      "imgName": "The_Spectacular_Spider-Man_1968-removebg-preview.png",
+      "spin": 0
+    },
+    {
+      "type": "image",
+      "x": 517,
+      "y": 306,
+      "w": 325,
+      "h": 322,
+      "rotation": 0,
+      "src": "Comic_Daredevil_Wallpaper-removebg-preview.png",
+      "imgName": "Comic_Daredevil_Wallpaper-removebg-//preview.png",
+      "spin": 0
+    },
+    {
+      "type": "image",
+      "x": -74,
+      "y": 185,
+      "w": 367,
+      "h": 401,
+      "rotation": 0,
+      "src": "download__77_-removebg-preview.png",
+      "imgName": "download__77_-removebg-preview.png",
+      "spin": 0
+    },
+    {
+      "type": "image",
+      "x": 779,
+      "y": 71,
+      "w": 97,
+      "h": 67,
+      "rotation": 0,
+      "src": "Screenshot 2026-06-30 173847.png",
+      "imgName": "Screenshot 2026-06-30 173847.png",
+      "spin": 0
+    },
+    {
+      "type": "image",
+      "x": 740,
+      "y": 22,
+      "w": 182,
+      "h": 175,
+      "rotation": 0,
+      "src": "_collage__spiderman__marvel__marvelcomics-removebg-preview.png",
+      "imgName": "_collage__spiderman__marvel__marvelcomics-removebg-preview.png",
+      "spin": 1
+    },
+    {
+      "type": "image",
+      "x": 1113,
+      "y": 1,
+      "w": 193,
+      "h": 169,
+      "rotation": 0,
+      "src": "Adjusted-7.jpg",
+      "imgName": "Adjusted-7.jpg",
+      "spin": 0
+    }
+  ]
+}

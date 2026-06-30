@@ -3,6 +3,11 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://vjs.zencdn.net">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="preconnect" href="https://cdn.babylonjs.com">
     <title>World Comics</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap');
@@ -278,11 +283,6 @@
             display: flex; align-items: center; justify-content: center;
             pointer-events: none;
         }
-        .profile-name-overlay span {
-            font-family: 'Permanent Marker', cursive; font-size: clamp(18px, 4vw, 42px);
-            color: #000; text-align: center; line-height: 1.1;
-            max-width: 70%; word-break: break-word;
-        }
         .profile-input {
             width: 100%; padding: 10px 14px; margin-top: 12px;
             background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
@@ -324,18 +324,121 @@
         }
         .todo-list-item .del { cursor: pointer; color: #e94560; font-weight: bold; font-family: sans-serif; }
 
-        #decoContainer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 20; }
-        #decoContainer .deco-el { position: absolute; pointer-events: none; }
-        #decoContainer .deco-el img { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; }
-        #decoContainer .deco-el .text-content { width: 100%; height: 100%; overflow: hidden; font-family: 'Comic Sans MS', 'Comic Sans', cursive; }
-        #viewPanel:not(.inactive) ~ #decoContainer { display: none; }
-        @keyframes spin-cw { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .deco-el.spin .spin-wrap { width: 100%; height: 100%; animation: spin-cw 6s linear infinite; }
-        .deco-el.spin .spin-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
+        .deco-panel {
+            position: fixed; z-index: 20; pointer-events: none;
+        }
+        .deco-panel img {
+            display: block; width: 100%; height: 100%; object-fit: contain;
+        }
+        .deco-panel .deco-overlay {
+            position: absolute; pointer-events: auto;
+        }
+        #decoContainer {
+            position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 20; overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+        #decoContainer .deco-el {
+            position: absolute; pointer-events: none; user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+        #decoContainer .deco-el img {
+            width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+        #decoContainer .deco-el .spin-wrap {
+            width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+        }
+        #decoContainer .deco-el.spin .spin-wrap {
+            animation: deco-spin 8s linear infinite;
+        }
+        body.reader-active #decoContainer {
+            opacity: 0 !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+        }
+        @keyframes deco-spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        #videoOverlay {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.95);
+            padding: 0;
+        }
+        #videoOverlay.visible {
+            display: flex;
+        }
+        #videoOverlayClose {
+            position: absolute;
+            top: 18px;
+            right: 18px;
+            z-index: 51;
+            width: 42px;
+            height: 42px;
+            border: none;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #videoOverlayClose:hover {
+            background: rgba(255, 255, 255, 0.16);
+        }
+        #videoOverlay .video-js {
+            width: min(95vw, 1280px);
+            height: min(95vh, 720px);
+            max-width: 100%;
+            max-height: 100%;
+        }
+        #decoName {
+            top: 10px; right: 20px;
+            width: min(25vw, 280px); height: min(25vw, 280px);
+            transform: rotate(30deg);
+        }
+        #decoName .deco-overlay {
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+        }
+        #decoName .deco-overlay span {
+            font-family: 'Permanent Marker', cursive;
+            font-size: clamp(14px, 3vw, 32px);
+            color: #000; text-align: center; line-height: 1.1;
+            max-width: 60%; word-break: break-word;
+        }
+        #decoTodo {
+            top: 60px; right: 80px;
+            width: min(28vw, 300px); height: min(28vw, 300px);
+            transform: rotate(-60deg);
+        }
+        #decoTodo .deco-overlay {
+            top: 12%; left: 10%; width: 80%; height: 76%;
+            display: flex; flex-direction: column; gap: 2px;
+            font-family: 'Comic Sans MS', 'Comic Sans', cursive;
+            font-size: clamp(8px, 1.5vw, 14px); color: #222;
+            overflow: hidden;
+        }
+        #viewPanel:not(.inactive) ~ .deco-panel { display: none; }
+        .editor-mode .deco-panel { display: none !important; }
     </style>
+    <link href="https://vjs.zencdn.net/8.28.0/video-js.css" rel="stylesheet" />
 </head>
 <body>
     <div id="loading"><div class="spinner"></div>Loading…</div>
+    <div id="decoContainer"></div>
     <div id="overlay">
         <div class="overlay-header">
             <h1><img src="fin.png" alt="World Comics" class="overlay-title-img"></h1>
@@ -345,7 +448,6 @@
             <button class="active" data-section="home">Home</button>
             <button data-section="marvel">Marvel</button>
             <button data-section="dc">DC</button>
-            <button id="megaTabBtn" data-section="mega" style="display:none">MEGA</button>
             <button data-section="library">My Library</button>
             <button data-section="profile">Profile</button>
             <button data-section="about">About</button>
@@ -369,46 +471,34 @@
             <div class="reader-hint" id="readerHint">Press Spacebar to advance →</div>
         </div>
     </div>
-    <div id="decoContainer"></div>
     <div id="planeComicLabel" aria-hidden="true"></div>
     <canvas id="renderCanvas"></canvas>
-
-    
+    <div id="videoOverlay">
+        <button id="videoOverlayClose" aria-label="Close video">×</button>
+        <video id="fullscreenVideo" class="video-js vjs-big-play-centered vjs-theme-fantasy" controls preload="auto" playsinline>
+            <source src="special.mp4" type="video/mp4" />
+        </video>
+    </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
-    <script src="https://cdn.jsdelivr.net/npm/megajs@1.2.0/dist/main.min.js"></script>
-    <script src="mega-service.js"></script>
     <script src="jquery.js"></script>
     <script src="turn.js"></script>
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
     <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
     
     <script>
-        if (window.location.search.includes('editor=1')) document.body.classList.add('editor-mode');
-
         // ────────────────────────────────────────────── PDF COMICS ENGINE
         const COMICS_DIR = './comics/';
         const pdfCache = new Map();
 
-        // ── MEGA.nz config ──
-        // Share your MEGA folder publicly and paste the link here:
-        const MEGA_FOLDER_URL = 'https://mega.nz/folder/zLRWyCLa#iQggHxoqpUXtFVMEXAxKLQ';
-        const megaEntries = []; // populated async from MEGA
+        function comicURL(filename) { 
+            if (filename.startsWith('http')) return filename;
+            return COMICS_DIR + filename.replace(/#/g, '%23').replace(/ /g, '%20'); 
+        }
 
-        function comicURL(filename) { return COMICS_DIR + filename.replace(/#/g, '%23').replace(/ /g, '%20'); }
-
-        async function loadPDF(filename, source) {
+        async function loadPDF(filename) {
             if (pdfCache.has(filename)) return pdfCache.get(filename);
-            if (source === 'mega') {
-                const mf = megaEntries.find(function(c) { return c.filename === filename; });
-                if (mf && mf._megaFile) {
-                    var blobUrl = await MegaService.getPdfSource(mf._megaFile);
-                    var megaPdf = await pdfjsLib.getDocument(blobUrl).promise;
-                    pdfCache.set(filename, megaPdf);
-                    return megaPdf;
-                }
-            }
             const pdf = await pdfjsLib.getDocument(comicURL(filename)).promise;
             pdfCache.set(filename, pdf);
             return pdf;
@@ -426,9 +516,9 @@
             return canvas;
         }
 
-        function detectCategory(path, title) {
-            if (path.startsWith('marvel/') || /marvel|spider|jessica|carnage|deadpool/i.test(title || path)) return 'Marvel';
-            if (path.startsWith('dc/') || /dc|batman|superman|raven/i.test(title || path)) return 'DC';
+        function detectCategory(path) {
+            if (path.startsWith('marvel/')) return 'Marvel';
+            if (path.startsWith('dc/')) return 'DC';
             return 'Marvel';
         }
 
@@ -444,14 +534,129 @@
         }
 
         // ────────────────────────────────────────────── COMICS FROM PDF FILES
-        // Small PDFs loaded instantly from repo; larger ones served via MEGA
         const comicFiles = [
-            { path: 'dc/superman/', name: 'Absolute Superman 020.pdf' },
-            { path: 'dc/batman/', name: 'Batman (2025) 1#.pdf' },
-            { path: 'dc/superman/', name: 'Superman (2016) 1#.pdf' },
-            { path: 'dc/raven/', name: 'Raven (2016) 1#.pdf' },
-            { path: 'marvel/jessica-jones/', name: 'Jessica Jones (2016) 1#.pdf' },
-            { path: 'marvel/marvel-now/', name: 'marvel-now-point-one.pdf' },
+            // DC
+            { path: 'all_comics/batman(2025)/', name: 'batman(2025)#1.pdf' },
+            { path: 'all_comics/batman(2025)/', name: 'batman(2025)#2.pdf' },
+            { path: 'all_comics/batman(2025)/', name: 'batman(2025)#3.pdf' },
+            { path: 'all_comics/batman(2025)/', name: 'batman(2025)#4.pdf' },
+            { path: 'all_comics/batman(2025)/', name: 'batman(2025)#5.pdf' },
+            { path: 'all_comics/batman(2025)/', name: 'batman(2025)#6.pdf' },
+            { path: 'all_comics/batman(2025)/', name: 'batman(2025)#7.pdf' },
+            { path: 'all_comics/batman(2025)/', name: 'batman(2025)#8.pdf' },
+            { path: 'all_comics/batman(2025)/', name: 'batman(2025)#9.pdf' },
+            { path: 'all_comics/Batman The Devastator(2017)/', name: 'Batman The Devastator(2017)#1.pdf' },
+            
+            // Marvel
+            { path: 'all_comics/Carnage Eddie Brock(2025)/', name: 'Carnage Eddie Brock(2025)#1.pdf' },
+            { path: 'all_comics/Carnage Eddie Brock(2025)/', name: 'Carnage Eddie Brock(2025)#2.pdf' },
+            { path: 'all_comics/Carnage Eddie Brock(2025)/', name: 'Carnage Eddie Brock(2025)#3.pdf' },
+            { path: 'all_comics/Carnage Eddie Brock(2025)/', name: 'Carnage Eddie Brock(2025)#4.pdf' },
+            { path: 'all_comics/Carnage Eddie Brock(2025)/', name: 'Carnage Eddie Brock(2025)#5.pdf' },
+            { path: 'all_comics/Carnage Eddie Brock(2025)/', name: 'Carnage Eddie Brock(2025)#6.pdf' },
+            { path: 'all_comics/Daredevil(2023)/', name: 'Daredevil(2023)#1.pdf' },
+            { path: 'all_comics/Daredevil(2023)/', name: 'Daredevil(2023)#2.pdf' },
+            { path: 'all_comics/Daredevil(2023)/', name: 'Daredevil(2023)#3.pdf' },
+            { path: 'all_comics/Daredevil(2023)/', name: 'Daredevil(2023)#4.pdf' },
+            { path: 'all_comics/Daredevil(2023)/', name: 'Daredevil(2023)#5.pdf' },
+            { path: 'all_comics/Daredevil(2023)/', name: 'Daredevil(2023)#6.pdf' },
+            { path: 'all_comics/Daredevil(2023)/', name: 'Daredevil(2023)#7.pdf' },
+            { path: 'all_comics/Daredevil(2023)/', name: 'Daredevil(2023)#8.pdf' },
+            { path: 'all_comics/Daredevil(2023)/', name: 'Daredevil(2023)#9.pdf' },
+            { path: 'all_comics/Daredevil(2023)/', name: 'Daredevil(2023)#10.pdf' },
+            { path: 'all_comics/Daredevil(2023)/', name: 'Daredevil(2023)#11.pdf' },
+            { path: 'all_comics/Hellverine(2024)/', name: 'Hellverine(2024)#1.pdf' },
+            { path: 'all_comics/Hellverine(2024)/', name: 'Hellverine(2024)#2.pdf' },
+            { path: 'all_comics/Hellverine(2024)/', name: 'Hellverine(2024)#3.pdf' },
+            { path: 'all_comics/Hellverine(2024)/', name: 'Hellverine(2024)#4.pdf' },
+            { path: 'all_comics/Spider-Girl(2025)/', name: 'Spider-Girl(2025)#1.pdf' },
+            { path: 'all_comics/Spider-Girl(2025)/', name: 'Spider-Girl(2025)#2.pdf' },
+            { path: 'all_comics/Spider-Girl(2025)/', name: 'Spider-Girl(2025)#3.pdf' },
+            { path: 'all_comics/Spider-Girl(2025)/', name: 'Spider-Girl(2025)#4.pdf' },
+            { path: 'all_comics/Spider-Girl(2025)/', name: 'Spider-Girl(2025)#5.pdf' },
+            { path: 'all_comics/Thor God of Thunder(2022)/', name: 'Thor God of Thunder(2022)#1.pdf' },
+            { path: 'all_comics/Thor God of Thunder(2022)/', name: 'Thor God of Thunder(2022)#2.pdf' },
+            { path: 'all_comics/Thor God of Thunder(2022)/', name: 'Thor God of Thunder(2022)#3.pdf' },
+            { path: 'all_comics/Thor God of Thunder(2022)/', name: 'Thor God of Thunder(2022)#4.pdf' },
+            { path: 'all_comics/Thor God of Thunder(2022)/', name: 'Thor God of Thunder(2022)#5.pdf' },
+            { path: 'all_comics/Thor God of Thunder(2022)/', name: 'Thor God of Thunder(2022)#6.pdf' },
+            { path: 'all_comics/Thor God of Thunder(2022)/', name: 'Thor God of Thunder(2022)#7.pdf' },
+            
+            // Others
+            { path: 'all_comics/Alien 3(2018)/', name: 'Alien 3(2018)#1.pdf' },
+            { path: 'all_comics/Alien 3(2018)/', name: 'Alien 3(2018)#2.pdf' },
+            { path: 'all_comics/Alien 3(2018)/', name: 'Alien 3(2018)#3.pdf' },
+            { path: 'all_comics/Alien 3(2018)/', name: 'Alien 3(2018)#4.pdf' },
+            { path: 'all_comics/Alien 3(2018)/', name: 'Alien 3(2018)#5.pdf' },
+            { path: 'all_comics/Chandra(2018)/', name: 'Chandra(2018)#1.pdf' },
+            { path: 'all_comics/Chandra(2018)/', name: 'Chandra(2018)#2.pdf' },
+            { path: 'all_comics/Chandra(2018)/', name: 'Chandra(2018)#3.pdf' },
+            { path: 'all_comics/Chandra(2018)/', name: 'Chandra(2018)#4.pdf' },
+            { path: 'all_comics/Danger Street(2022)/', name: 'Danger Street(2022)#1.pdf' },
+            { path: 'all_comics/Danger Street(2022)/', name: 'Danger Street(2022)#2.pdf' },
+            { path: 'all_comics/Danger Street(2022)/', name: 'Danger Street(2022)#3.pdf' },
+            { path: 'all_comics/Danger Street(2022)/', name: 'Danger Street(2022)#4.pdf' },
+            { path: 'all_comics/Danger Street(2022)/', name: 'Danger Street(2022)#5.pdf' },
+            { path: 'all_comics/Danger Street(2022)/', name: 'Danger Street(2022)#6.pdf' },
+            { path: 'all_comics/Danger Street(2022)/', name: 'Danger Street(2022)#7.pdf' },
+            { path: 'all_comics/Danger Street(2022)/', name: 'Danger Street(2022)#8.pdf' },
+            { path: 'all_comics/Danger Street(2022)/', name: 'Danger Street(2022)#9.pdf' },
+            { path: 'all_comics/Danger Street(2022)/', name: 'Danger Street(2022)#10.pdf' },
+            { path: 'all_comics/Danger Street(2022)/', name: 'Danger Street(2022)#11.pdf' },
+            { path: 'all_comics/Deep Target(2021)/', name: 'Deep Target(2021)#1.pdf' },
+            { path: 'all_comics/Deep Target(2021)/', name: 'Deep Target(2021)#2.pdf' },
+            { path: 'all_comics/Deep Target(2021)/', name: 'Deep Target(2021)#3.pdf' },
+            { path: 'all_comics/Deep Target(2021)/', name: 'Deep Target(2021)#4.pdf' },
+            { path: 'all_comics/Deep Target(2021)/', name: 'Deep Target(2021)#5.pdf' },
+            { path: 'all_comics/Deep Target(2021)/', name: 'Deep Target(2021)#6.pdf' },
+            { path: 'all_comics/Deep Target(2021)/', name: 'Deep Target(2021)#7.pdf' },
+            { path: 'all_comics/Edenfrost(2023)/', name: 'Edenfrost(2023)#1.pdf' },
+            { path: 'all_comics/Edenfrost(2023)/', name: 'Edenfrost(2023)#2.pdf' },
+            { path: 'all_comics/Edenfrost(2023)/', name: 'Edenfrost(2023)#3.pdf' },
+            { path: 'all_comics/Edenfrost(2023)/', name: 'Edenfrost(2023)#4.pdf' },
+            { path: 'all_comics/Gunland(2020)/', name: 'Gunland(2020)#1.pdf' },
+            { path: 'all_comics/Gunland(2020)/', name: 'Gunland(2020)#2.pdf' },
+            { path: 'all_comics/Gunland(2020)/', name: 'Gunland(2020)#3.pdf' },
+            { path: 'all_comics/Gunland(2020)/', name: 'Gunland(2020)#4.pdf' },
+            { path: 'all_comics/Gunland(2020)/', name: 'Gunland(2020)#5.pdf' },
+            { path: 'all_comics/Gunland(2020)/', name: 'Gunland(2020)#6.pdf' },
+            { path: 'all_comics/Gunland(2020)/', name: 'Gunland(2020)#7.pdf' },
+            { path: 'all_comics/Gunland(2020)/', name: 'Gunland(2020)#8.pdf' },
+            { path: 'all_comics/Gunland(2020)/', name: 'Gunland(2020)#9.pdf' },
+            { path: 'all_comics/Gunland(2020)/', name: 'Gunland(2020)#10.pdf' },
+            { path: 'all_comics/Gunland(2020)/', name: 'Gunland(2020)#11.pdf' },
+            { path: 'all_comics/Gunland(2020)/', name: 'Gunland(2020)#12.pdf' },
+            { path: 'all_comics/Nightmare Country The Glass House(2023)/', name: 'Nightmare Country The Glass House(2023)#1.pdf' },
+            { path: 'all_comics/Nightmare Country The Glass House(2023)/', name: 'Nightmare Country The Glass House(2023)#2.pdf' },
+            { path: 'all_comics/Nightmare Country The Glass House(2023)/', name: 'Nightmare Country The Glass House(2023)#3.pdf' },
+            { path: 'all_comics/Nightmare Country The Glass House(2023)/', name: 'Nightmare Country The Glass House(2023)#4.pdf' },
+            { path: 'all_comics/Nightmare Country The Glass House(2023)/', name: 'Nightmare Country The Glass House(2023)#5.pdf' },
+            { path: 'all_comics/Nightmare Country The Glass House(2023)/', name: 'Nightmare Country The Glass House(2023)#6.pdf' },
+            { path: 'all_comics/Nils(2020)/', name: 'Nils(2020)#1.pdf' },
+            { path: 'all_comics/Nils(2020)/', name: 'Nils(2020)#2.pdf' },
+            { path: 'all_comics/Pretty Deadly The Rat(2019)/', name: 'Pretty Deadly The Rat(2019)#1.pdf' },
+            { path: 'all_comics/Pretty Deadly The Rat(2019)/', name: 'Pretty Deadly The Rat(2019)#2.pdf' },
+            { path: 'all_comics/Pretty Deadly The Rat(2019)/', name: 'Pretty Deadly The Rat(2019)#3.pdf' },
+            { path: 'all_comics/Pretty Deadly The Rat(2019)/', name: 'Pretty Deadly The Rat(2019)#4.pdf' },
+            { path: 'all_comics/Pretty Deadly The Rat(2019)/', name: 'Pretty Deadly The Rat(2019)#5.pdf' },
+            { path: 'all_comics/Spider-Girl(2025)/', name: 'Spider-Girl(2025)#1.pdf' },
+            { path: 'all_comics/Spider-Girl(2025)/', name: 'Spider-Girl(2025)#2.pdf' },
+            { path: 'all_comics/Spider-Girl(2025)/', name: 'Spider-Girl(2025)#3.pdf' },
+            { path: 'all_comics/Spider-Girl(2025)/', name: 'Spider-Girl(2025)#4.pdf' },
+            { path: 'all_comics/Spider-Girl(2025)/', name: 'Spider-Girl(2025)#5.pdf' },
+            { path: 'all_comics/Star Wars Target Vader(2019)/', name: 'Star Wars Target Vader(2019)#1.pdf' },
+            { path: 'all_comics/Star Wars Target Vader(2019)/', name: 'Star Wars Target Vader(2019)#2.pdf' },
+            { path: 'all_comics/Star Wars Target Vader(2019)/', name: 'Star Wars Target Vader(2019)#3.pdf' },
+            { path: 'all_comics/Star Wars Target Vader(2019)/', name: 'Star Wars Target Vader(2019)#4.pdf' },
+            { path: 'all_comics/Star Wars Target Vader(2019)/', name: 'Star Wars Target Vader(2019)#5.pdf' },
+            { path: 'all_comics/Star Wars Target Vader(2019)/', name: 'Star Wars Target Vader(2019)#6.pdf' },
+            { path: 'all_comics/Thor God of Thunder(2022)/', name: 'Thor God of Thunder(2022)#1.pdf' },
+            { path: 'all_comics/Thor God of Thunder(2022)/', name: 'Thor God of Thunder(2022)#2.pdf' },
+            { path: 'all_comics/Thor God of Thunder(2022)/', name: 'Thor God of Thunder(2022)#3.pdf' },
+            { path: 'all_comics/Thor God of Thunder(2022)/', name: 'Thor God of Thunder(2022)#4.pdf' },
+            { path: 'all_comics/Thor God of Thunder(2022)/', name: 'Thor God of Thunder(2022)#5.pdf' },
+            { path: 'all_comics/Thor God of Thunder(2022)/', name: 'Thor God of Thunder(2022)#6.pdf' },
+            { path: 'all_comics/Thor God of Thunder(2022)/', name: 'Thor God of Thunder(2022)#7.pdf' },
         ];
 
         const comics = comicFiles.map((f, i) => {
@@ -461,73 +666,14 @@
                 id: i + 1,
                 filename: fullFilename,
                 title: title,
-                category: detectCategory(f.path, title),
+                category: detectCategory(f.path),
                 year: extractYear(f.name),
                 pages: 'PDF',
                 pdf: null,
                 numPages: 0,
                 loaded: false,
-                source: 'lfs',
             };
         });
-
-        // ── Load MEGA comics ──
-        (async function loadMega() {
-            if (!MEGA_FOLDER_URL) return;
-            try {
-                var result = await MegaService.init(MEGA_FOLDER_URL);
-                var megaFiles = result.files || [];
-                megaFiles.forEach(function (f, i) {
-                    var displayName = f.name.replace('.pdf', '').trim();
-                    // Skip if a local comic with same title already exists (deduplicate)
-                    var nameLower = displayName.toLowerCase();
-                    var exists = comics.some(function(c) { return c.title.toLowerCase() === nameLower; });
-                    if (exists) return;
-                    var comic = {
-                        id: comics.length + 1,
-                        filename: 'mega/' + f.path,
-                        title: displayName,
-                        category: detectCategory(f.path, displayName),
-                        year: extractYear(f.name),
-                        pages: 'PDF',
-                        pdf: null,
-                        numPages: 0,
-                        loaded: false,
-                        source: 'mega',
-                        _megaFile: f,
-                    };
-                    comics.push(comic);
-                    megaEntries.push(comic);
-                });
-                console.log('[MEGA] Appended ' + megaFiles.length + ' comics');
-                // Rebuild sections to include MEGA entries
-                sectionData.home = comics;
-                sectionData.marvel = comics.filter(function(c) { return c.category === 'Marvel'; });
-                sectionData.dc = comics.filter(function(c) { return c.category === 'DC'; });
-                sectionData.mega = megaEntries;
-                // Show MEGA tab and re-render all sections
-                document.getElementById('megaTabBtn').style.display = '';
-                ['home', 'marvel', 'dc', 'mega'].forEach(function (s) {
-                    var oldEl = document.getElementById(s + '-section');
-                    if (oldEl && oldEl.parentNode) oldEl.parentNode.removeChild(oldEl);
-                    // Re-insert at correct position
-                    var insertBefore = null;
-                    if (s === 'home') {
-                        var librarySection = document.getElementById('library-section');
-                        if (librarySection) insertBefore = librarySection;
-                    }
-                    var newEl = renderSection(s, sectionData[s]);
-                    var ref = insertBefore || document.getElementById('overlayScroll').firstChild;
-                    document.getElementById('overlayScroll').insertBefore(newEl, ref);
-                });
-                // Attach lazy load for MEGA covers and re-init nav handlers
-                setupMegaLazyLoad();
-                attachNavHandlers();
-                attachCoverClickHandlers();
-            } catch (e) {
-                console.warn('[MEGA] Failed to load:', e);
-            }
-        })();
 
         // ────────────────────────────────────────────── BUILD UI
         let scrollEl = document.getElementById('overlayScroll');
@@ -539,7 +685,7 @@
 
             const titleMap = {
                 home: 'All Comics', marvel: 'Marvel Comics', dc: 'DC Comics',
-                mega: 'MEGA Library', library: 'My Library', about: 'About'
+                library: 'My Library', about: 'About'
             };
             const title = document.createElement('div');
             title.className = 'section-title';
@@ -555,29 +701,40 @@
                 const about = document.createElement('div');
                 about.className = 'about-content';
                 about.innerHTML = `
-                    <h3>World Comics</h3>
-                    <p>Your local digital comic library. Browse and read comics from your collection.</p>
-                    <h3>Features</h3>
-                    <p>• PDF comic reader<br>• Page-turn animation<br>• Spacebar navigation<br>• 3D interactive scene</p>
-                    <p style="margin-top:16px;color:#445;">Powered by PDF.js + Babylon.js</p>
+                    <h3>About Bugle Comics</h3>
+                    <p>Welcome to <strong>Bugle Comics</strong>, a platform built for comic fans who love discovering and enjoying great stories.</p>
+                    <p>Bugle Comics aims to provide a clean, fast, and immersive reading experience, making it easy to browse, organize, and enjoy comics across a variety of genres. Our focus is on creating an enjoyable experience for readers with an intuitive interface and a growing collection of content from creators and publishers who have chosen to share their work through the platform.</p>
+                    <p>Whether you're exploring classic adventures, discovering new creators, or revisiting your favorite stories, Bugle Comics is designed to put the reading experience first.</p>
+                    <p>Happy reading, and welcome to Bugle Comics.</p>
                 `;
                 div.appendChild(about);
             } else if (sectionId === 'profile') {
                 const savedName = localStorage.getItem('deco_name') || '';
+                const savedEmail = localStorage.getItem('deco_email') || '';
+                const savedFav = localStorage.getItem('deco_favorite') || '';
                 const savedTodos = JSON.parse(localStorage.getItem('deco_todos') || '[]');
                 div.innerHTML = `
                     <div class="profile-card">
                         <div class="profile-label">Your Name</div>
                         <div class="img-wrap">
-                            <img src="name is.png" alt="Name tag">
-                            <div class="profile-name-overlay"><span id="profileNameDisplay">${savedName || 'Your Name'}</span></div>
+                            <div class="profile-name-overlay"><span id="profileNameDisplay">${savedName || ''}</span></div>
                         </div>
                         <input class="profile-input" id="profileNameInput" value="${savedName}" placeholder="Enter your name...">
                     </div>
                     <div class="profile-card">
+                        <div class="profile-label">Account Info</div>
+                        <div class="form-group" style="margin-bottom:12px;">
+                            <div style="font-size:11px; color:#667; text-transform:uppercase; margin-bottom:4px;">Email</div>
+                            <div style="color:#ccc; font-size:14px;">${savedEmail || 'Not provided'}</div>
+                        </div>
+                        <div class="form-group">
+                            <div style="font-size:11px; color:#667; text-transform:uppercase; margin-bottom:4px;">Favorite Comic</div>
+                            <div style="color:#ccc; font-size:14px;">${savedFav || 'Not provided'}</div>
+                        </div>
+                    </div>
+                    <div class="profile-card">
                         <div class="profile-label">To-Do List</div>
                         <div class="img-wrap">
-                            <img src="to do.png" alt="To-do list">
                             <div class="todo-overlay" id="profileTodoOverlay"></div>
                         </div>
                         <div class="todo-add-row">
@@ -627,7 +784,7 @@
             return div;
         }
 
-        const sections = ['home', 'marvel', 'dc', 'mega', 'library', 'profile', 'about'];
+        const sections = ['home', 'marvel', 'dc', 'library', 'profile', 'about'];
         const sectionData = {
             home: comics,
             marvel: comics.filter(c => c.category === 'Marvel'),
@@ -640,11 +797,10 @@
         // ─── Load covers & metadata asynchronously ───
         (async function loadCovers() {
             for (const comic of comics) {
-                if (comic.source === 'mega') continue;
                 const cv = document.querySelector(`.comic-card[data-comic-id="${comic.id}"] canvas.cover`);
                 if (!cv) continue;
                 try {
-                    const pdf = await loadPDF(comic.filename, comic.source);
+                    const pdf = await loadPDF(comic.filename);
                     comic.pdf = pdf;
                     comic.numPages = pdf.numPages;
                     comic.loaded = true;
@@ -666,57 +822,6 @@
                 }
             }
         })();
-
-        // ── Lazy load MEGA covers when they scroll into view ──
-        var _megaObserver = null;
-        function setupMegaLazyLoad() {
-            if (_megaObserver) _megaObserver.disconnect();
-            _megaObserver = new IntersectionObserver(function (entries) {
-                entries.forEach(function (entry) {
-                    if (!entry.isIntersecting) return;
-                    var card = entry.target;
-                    var id = parseInt(card.dataset.comicId);
-                    var comic = comics.find(function(c) { return c.id === id; });
-                    if (!comic || comic.loaded || comic.source !== 'mega') return;
-                    _megaObserver.unobserve(card);
-                    loadMegaCover(comic, card);
-                });
-            }, { rootMargin: '200px' });
-            document.querySelectorAll('.comic-card').forEach(function (card) {
-                var id = parseInt(card.dataset.comicId);
-                var comic = comics.find(function(c) { return c.id === id; });
-                if (comic && comic.source === 'mega') _megaObserver.observe(card);
-            });
-        }
-
-        async function loadMegaCover(comic, card) {
-            var cv = card ? card.querySelector('canvas.cover') : null;
-            if (!cv) return;
-            try {
-                var sizeEl = card.querySelector('.pagesize');
-                if (sizeEl) sizeEl.textContent = 'Loading…';
-                var pdf = await loadPDF(comic.filename, 'mega');
-                comic.pdf = pdf;
-                comic.numPages = pdf.numPages;
-                comic.loaded = true;
-                if (sizeEl) sizeEl.textContent = pdf.numPages + ' pages';
-                await renderPDFpage(pdf, 1, cv, 0.5);
-            } catch (err) {
-                console.warn('[MEGA] Cover load failed:', comic.filename, err);
-                var ctx = cv.getContext('2d');
-                ctx.fillStyle = '#1a1a2e';
-                ctx.fillRect(0, 0, cv.width, cv.height);
-                ctx.fillStyle = '#445';
-                ctx.font = '12px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText('Load failed', cv.width / 2, cv.height / 2);
-            }
-        }
-
-        function attachCoverClickHandlers() {
-            // Re-attach click handlers for newly added MEGA cards
-            // (the global delegation on .btn-read already covers them)
-        }
 
         // ────────────────────────────────────────────── TAB SWITCHING
         function attachNavHandlers(){
@@ -880,9 +985,10 @@
 
             document.getElementById('viewPanel').classList.remove('inactive');
             document.getElementById('reader').classList.add('open');
+            document.body.classList.add('reader-active');
 
             try {
-                const pdf = comic.pdf || await loadPDF(comic.filename, comic.source);
+                const pdf = comic.pdf || await loadPDF(comic.filename);
                 comic.pdf = pdf;
                 const numPages = pdf.numPages;
 
@@ -1063,7 +1169,7 @@
 
         function closeReader() {
             document.getElementById('reader').classList.remove('open', 'fullscreen', 'book-mode');
-            document.body.classList.remove('fullscreen-mode');
+            document.body.classList.remove('fullscreen-mode', 'reader-active');
             document.getElementById('viewPanel').classList.add('inactive');
             try { $('#turnBook').turn('destroy').remove(); } catch(e) {}
             const pw0 = document.getElementById('pageWrap0');
@@ -1122,27 +1228,100 @@
             const id = parseInt(card.dataset.comicId);
             const comic = comics.find(c => c.id === id);
             if (!comic) return;
-            if (comic.source === 'mega') {
-                // Stream from MEGA and download
-                (async function () {
-                    try {
-                        var url = await MegaService.getPdfSource(comic._megaFile);
-                        var a = document.createElement('a');
-                        a.href = url;
-                        a.download = comic._megaFile.name || comic.title + '.pdf';
-                        document.body.appendChild(a);
-                        a.click();
-                        setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(url); }, 60000);
-                    } catch (e) {
-                        alert('Download failed: ' + e.message);
-                    }
-                })();
-                return;
-            }
             const a = document.createElement('a');
             a.href = comicURL(comic.filename);
             a.download = comic.filename;
             a.click();
+        });
+
+        const videoOverlay = document.getElementById('videoOverlay');
+        const videoOverlayClose = document.getElementById('videoOverlayClose');
+        const fullscreenVideo = document.getElementById('fullscreenVideo');
+        let videoPlayer = null;
+
+        let videoJSScriptPromise = null;
+        function ensureVideoJSLoaded() {
+            if (window.videojs) return Promise.resolve();
+            if (videoJSScriptPromise) return videoJSScriptPromise;
+            videoJSScriptPromise = new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'https://vjs.zencdn.net/8.28.0/video.min.js';
+                script.async = true;
+                script.onload = () => resolve();
+                script.onerror = (err) => reject(new Error('Failed to load Video.js: ' + err));
+                document.head.appendChild(script);
+            });
+            return videoJSScriptPromise;
+        }
+
+        function initFullscreenVideoPlayer() {
+            if (videoPlayer || !window.videojs || !fullscreenVideo) return;
+            videoPlayer = videojs(fullscreenVideo, {
+                controls: true,
+                autoplay: false,
+                preload: 'auto',
+                fluid: true,
+                playbackRates: [0.5, 1, 1.5, 2],
+                controlBar: { fullscreenToggle: true }
+            });
+            videoPlayer.src({ src: 'special.mp4', type: 'video/mp4' });
+            videoPlayer.on('ended', hideSpecialFullscreenVideo);
+            videoPlayer.on('error', () => {
+                console.warn('VideoJS error:', videoPlayer.error());
+            });
+        }
+
+        async function showSpecialFullscreenVideo() {
+            if (!window.videojs) {
+                try {
+                    await ensureVideoJSLoaded();
+                } catch (err) {
+                    console.warn(err);
+                }
+            }
+            initFullscreenVideoPlayer();
+            if (videoOverlay) videoOverlay.classList.add('visible');
+            if (videoPlayer) {
+                videoPlayer.src({ src: 'special.mp4', type: 'video/mp4' });
+                videoPlayer.load();
+                videoPlayer.play().catch((err) => {
+                    console.warn('Special video play failed:', err);
+                });
+            } else if (fullscreenVideo) {
+                fullscreenVideo.src = 'special.mp4';
+                fullscreenVideo.load();
+                fullscreenVideo.play().catch((err) => {
+                    console.warn('Fallback video play failed:', err);
+                });
+            }
+        }
+
+        function hideSpecialFullscreenVideo() {
+            if (videoPlayer) {
+                try {
+                    videoPlayer.pause();
+                    videoPlayer.currentTime(0);
+                    videoPlayer.src({ src: '', type: '' });
+                } catch (err) {
+                    console.warn('Error stopping video player:', err);
+                }
+            }
+            if (fullscreenVideo) {
+                try {
+                    fullscreenVideo.pause();
+                    fullscreenVideo.currentTime = 0;
+                    fullscreenVideo.removeAttribute('src');
+                    fullscreenVideo.load();
+                } catch (err) {
+                    console.warn('Error stopping fullscreen video element:', err);
+                }
+            }
+            if (videoOverlay) videoOverlay.classList.remove('visible');
+        }
+
+        if (videoOverlayClose) videoOverlayClose.addEventListener('click', hideSpecialFullscreenVideo);
+        if (videoOverlay) videoOverlay.addEventListener('click', (e) => {
+            if (e.target === videoOverlay) hideSpecialFullscreenVideo();
         });
 
         // ────────────────────────────────────────────── BABYLON 3D SCENE
@@ -1261,7 +1440,7 @@
             };
 
             try {
-                const pdf = comic.pdf || await loadPDF(comic.filename, comic.source);
+                const pdf = comic.pdf || await loadPDF(comic.filename);
                 comic.pdf = pdf;
                 comic.numPages = pdf.numPages;
                 comic.loaded = true;
@@ -1349,7 +1528,7 @@
             const scene = new BABYLON.Scene(engine);
             scene.clearColor = new BABYLON.Color4(0.08, 0.08, 0.1, 1);
 
-            try { await BABYLON.SceneLoader.AppendAsync('./', 'comics.glb', scene); } catch (e) { console.warn('3D model not loaded:', e); }
+            await BABYLON.SceneLoader.AppendAsync('./', 'comics.glb', scene);
 
             // Laptop screen
             let laptop = null;
@@ -1363,47 +1542,108 @@
             });
 
             if (laptop) {
-                const tex = new BABYLON.DynamicTexture('laptopTex', { width: 512, height: 320 }, scene, false);
+                const laptopVideoSrc = './videoplayback.mp4';
                 const mat = new BABYLON.StandardMaterial('laptopMat', scene);
-                mat.diffuseTexture = tex;
-                mat.emissiveTexture = tex;
                 mat.emissiveColor = BABYLON.Color3.White();
                 mat.specularColor = BABYLON.Color3.Black();
                 laptop.material = mat;
 
-                let birdX = -60, birdY = 140, wing = 0;
-                scene.registerBeforeRender(() => {
-                    const ctx = tex.getContext();
-                    ctx.clearRect(0, 0, 512, 320);
-                    const grad = ctx.createLinearGradient(0, 0, 0, 320);
-                    grad.addColorStop(0, '#4facfe'); grad.addColorStop(1, '#00f2fe');
-                    ctx.fillStyle = grad; ctx.fillRect(0, 0, 512, 320);
-                    ctx.fillStyle = '#ffe066';
-                    ctx.beginPath(); ctx.arc(440, 60, 35, 0, Math.PI * 2); ctx.fill();
-                    ctx.fillStyle = 'rgba(255,255,255,0.6)';
-                    for (let i = 0; i < 3; i++) {
-                        const cx = (birdX * 0.3 + i * 180) % 600 - 50;
-                        const cy = 40 + i * 25;
-                        ctx.beginPath(); ctx.ellipse(cx, cy, 40, 15, 0, 0, Math.PI * 2); ctx.fill();
-                        ctx.beginPath(); ctx.ellipse(cx + 25, cy - 8, 30, 14, 0, 0, Math.PI * 2); ctx.fill();
+                let videoTexture = null;
+                const laptopLabel = document.getElementById('planeComicLabel');
+                if (laptopVideoSrc) {
+                    try {
+                        const video = document.createElement('video');
+                        video.src = laptopVideoSrc;
+                        video.crossOrigin = 'anonymous';
+                        video.loop = true;
+                        video.muted = true;
+                        video.autoplay = true;
+                        video.playsInline = true;
+                        video.preload = 'auto';
+                        video.style.display = 'none';
+                        document.body.appendChild(video);
+
+                        videoTexture = new BABYLON.VideoTexture('laptopVideoTexture', video, scene, true, false, BABYLON.VideoTexture.TRILINEAR_SAMPLINGMODE);
+                        videoTexture.vScale = -1;
+                        videoTexture.vOffset = 1;
+                        mat.diffuseTexture = videoTexture;
+                        mat.emissiveTexture = videoTexture;
+
+                        const playPromise = video.play();
+                        if (playPromise && typeof playPromise.catch === 'function') {
+                            playPromise.catch(() => {});
+                        }
+                    } catch (err) {
+                        console.warn('Could not load laptop MP4. Falling back to the generated animation.', err);
                     }
-                    wing = Math.sin(Date.now() * 0.008) * 15;
-                    ctx.fillStyle = '#2d2d2d';
-                    ctx.beginPath(); ctx.ellipse(birdX, birdY, 12, 7, 0, 0, Math.PI * 2); ctx.fill();
-                    ctx.beginPath(); ctx.arc(birdX + 14, birdY - 3, 6, 0, Math.PI * 2); ctx.fill();
-                    ctx.fillStyle = '#e8a838';
-                    ctx.beginPath(); ctx.moveTo(birdX + 20, birdY - 4); ctx.lineTo(birdX + 28, birdY - 2); ctx.lineTo(birdX + 20, birdY); ctx.fill();
-                    ctx.fillStyle = '#fff';
-                    ctx.beginPath(); ctx.arc(birdX + 16, birdY - 5, 2.5, 0, Math.PI * 2); ctx.fill();
-                    ctx.fillStyle = '#111';
-                    ctx.beginPath(); ctx.arc(birdX + 17, birdY - 5, 1.2, 0, Math.PI * 2); ctx.fill();
-                    ctx.fillStyle = '#1a1a1a';
-                    ctx.beginPath(); ctx.ellipse(birdX - 3, birdY - 6 + wing * 0.05, 10, 6 + wing * 0.03, -0.3, 0, Math.PI * 2); ctx.fill();
-                    ctx.beginPath(); ctx.moveTo(birdX - 12, birdY - 2); ctx.lineTo(birdX - 22, birdY - 8 + wing * 0.05); ctx.lineTo(birdX - 20, birdY + 2); ctx.fill();
-                    birdX += 0.7;
-                    if (birdX > 560) birdX = -60;
-                    tex.update();
-                });
+                }
+
+                laptop.isPickable = true;
+                laptop.actionManager = new BABYLON.ActionManager(scene);
+                laptop.actionManager.registerAction(new BABYLON.ExecuteCodeAction(
+                    BABYLON.ActionManager.OnPointerOverTrigger,
+                    () => {
+                        if (canvas) canvas.style.cursor = 'pointer';
+                        if (laptopLabel) {
+                            laptopLabel.innerHTML = '<span class="tag">Special</span><br>The Amazing Spider-Man (Coming Home)';
+                            laptopLabel.classList.add('visible');
+                        }
+                    }
+                ));
+                laptop.actionManager.registerAction(new BABYLON.ExecuteCodeAction(
+                    BABYLON.ActionManager.OnPointerOutTrigger,
+                    () => {
+                        if (canvas) canvas.style.cursor = '';
+                        if (laptopLabel) laptopLabel.classList.remove('visible');
+                    }
+                ));
+                laptop.actionManager.registerAction(new BABYLON.ExecuteCodeAction(
+                    BABYLON.ActionManager.OnPickTrigger,
+                    () => {
+                        if (laptopLabel) laptopLabel.classList.remove('visible');
+                        showSpecialFullscreenVideo();
+                    }
+                ));
+
+                if (!videoTexture) {
+                    const tex = new BABYLON.DynamicTexture('laptopTex', { width: 512, height: 320 }, scene, false);
+                    mat.diffuseTexture = tex;
+                    mat.emissiveTexture = tex;
+
+                    let birdX = -60, birdY = 140, wing = 0;
+                    scene.registerBeforeRender(() => {
+                        const ctx = tex.getContext();
+                        ctx.clearRect(0, 0, 512, 320);
+                        const grad = ctx.createLinearGradient(0, 0, 0, 320);
+                        grad.addColorStop(0, '#4facfe'); grad.addColorStop(1, '#00f2fe');
+                        ctx.fillStyle = grad; ctx.fillRect(0, 0, 512, 320);
+                        ctx.fillStyle = '#ffe066';
+                        ctx.beginPath(); ctx.arc(440, 60, 35, 0, Math.PI * 2); ctx.fill();
+                        ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                        for (let i = 0; i < 3; i++) {
+                            const cx = (birdX * 0.3 + i * 180) % 600 - 50;
+                            const cy = 40 + i * 25;
+                            ctx.beginPath(); ctx.ellipse(cx, cy, 40, 15, 0, 0, Math.PI * 2); ctx.fill();
+                            ctx.beginPath(); ctx.ellipse(cx + 25, cy - 8, 30, 14, 0, 0, Math.PI * 2); ctx.fill();
+                        }
+                        wing = Math.sin(Date.now() * 0.008) * 15;
+                        ctx.fillStyle = '#2d2d2d';
+                        ctx.beginPath(); ctx.ellipse(birdX, birdY, 12, 7, 0, 0, Math.PI * 2); ctx.fill();
+                        ctx.beginPath(); ctx.arc(birdX + 14, birdY - 3, 6, 0, Math.PI * 2); ctx.fill();
+                        ctx.fillStyle = '#e8a838';
+                        ctx.beginPath(); ctx.moveTo(birdX + 20, birdY - 4); ctx.lineTo(birdX + 28, birdY - 2); ctx.lineTo(birdX + 20, birdY); ctx.fill();
+                        ctx.fillStyle = '#fff';
+                        ctx.beginPath(); ctx.arc(birdX + 16, birdY - 5, 2.5, 0, Math.PI * 2); ctx.fill();
+                        ctx.fillStyle = '#111';
+                        ctx.beginPath(); ctx.arc(birdX + 17, birdY - 5, 1.2, 0, Math.PI * 2); ctx.fill();
+                        ctx.fillStyle = '#1a1a1a';
+                        ctx.beginPath(); ctx.ellipse(birdX - 3, birdY - 6 + wing * 0.05, 10, 6 + wing * 0.03, -0.3, 0, Math.PI * 2); ctx.fill();
+                        ctx.beginPath(); ctx.moveTo(birdX - 12, birdY - 2); ctx.lineTo(birdX - 22, birdY - 8 + wing * 0.05); ctx.lineTo(birdX - 20, birdY + 2); ctx.fill();
+                        birdX += 0.7;
+                        if (birdX > 560) birdX = -60;
+                        tex.update();
+                    });
+                }
             }
             setupComicPlanes(scene);
 
@@ -1491,9 +1731,9 @@
         function renderNameDisplay() {
             const name = localStorage.getItem('deco_name') || '';
             const display = document.getElementById('profileNameDisplay');
-            if (display) display.textContent = name || 'Your Name';
+            if (display) display.textContent = name;
             const floatName = document.getElementById('decoNameText');
-            if (floatName) floatName.textContent = name || 'Your Name';
+            if (floatName) floatName.textContent = name;
         }
 
         document.addEventListener('input', (e) => {
@@ -1534,193 +1774,27 @@
             ).join('');
         }
 
-        renderNameDisplay();
-        renderTodoOverlay();
-        renderTodoList();
-
-        // ── Image analysis — detect writable regions automatically ──
-        const _analysisCache = {};
-        function analyzeImage(imgSrc) {
-            if (_analysisCache[imgSrc]) return _analysisCache[imgSrc];
-            return new Promise(resolve => {
-                const img = new Image();
-                img.onload = () => {
-                    const c = document.createElement('canvas');
-                    c.width = img.naturalWidth; c.height = img.naturalHeight;
-                    const ctx = c.getContext('2d');
-                    ctx.drawImage(img, 0, 0);
-                    const iw = c.width, ih = c.height;
-                    const d = ctx.getImageData(0, 0, iw, ih).data;
-                    const name = imgSrc.toLowerCase();
-
-                    if (name.includes('name')) {
-                        // Detect white writable rectangle, exclude red header
-                        const white = [], redRows = [];
-                        for (let y = 0; y < ih; y++) {
-                            let wc = 0, rc = 0;
-                            for (let x = 0; x < iw; x++) {
-                                const i = (y * iw + x) * 4;
-                                const r = d[i], g = d[i+1], b = d[i+2];
-                                if (r > 220 && g > 220 && b > 220) wc++;
-                                if (r > 180 && g < 100 && b < 100) rc++;
-                            }
-                            if (wc > iw * 0.3) white.push(y);
-                            if (rc > iw * 0.2) redRows.push(y);
-                        }
-                        const redBottom = redRows.length > 0 ? Math.max(...redRows) : 0;
-                        const validWhite = white.filter(y => y > redBottom);
-                        if (validWhite.length < 5) { resolve(null); return; }
-                        const top = Math.min(...validWhite);
-                        const bot = Math.max(...validWhite);
-                        // Find left/right bounds within white rows
-                        let l = iw, r = 0;
-                        for (let y = top; y <= bot; y++) {
-                            for (let x = 0; x < iw; x++) {
-                                const i = (y * iw + x) * 4;
-                                if (d[i] > 220 && d[i+1] > 220 && d[i+2] > 220) {
-                                    if (x < l) l = x;
-                                    if (x > r) r = x;
-                                }
-                            }
-                        }
-                        const pad = Math.min(iw, ih) * 0.04;
-                        const result = {
-                            x: l + pad, y: top + pad,
-                            w: r - l - pad * 2, h: bot - top - pad * 2,
-                            imgW: iw, imgH: ih
-                        };
-                        _analysisCache[imgSrc] = result;
-                        resolve(result);
-                    }
-
-                    if (name.includes('to do')) {
-                        // Detect ruled notebook area via horizontal line detection
-                        const rowBright = [];
-                        for (let y = 0; y < ih; y++) {
-                            let sum = 0;
-                            for (let x = 0; x < iw; x++) {
-                                const i = (y * iw + x) * 4;
-                                sum += 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
-                            }
-                            rowBright.push(sum / iw);
-                        }
-                        const minB = Math.min(...rowBright), maxB = Math.max(...rowBright);
-                        const thresh = minB + (maxB - minB) * 0.6;
-                        const lineRows = [];
-                        for (let y = 1; y < ih - 1; y++) {
-                            if (rowBright[y] < thresh && rowBright[y] < rowBright[y-1] && rowBright[y] < rowBright[y+1]) {
-                                lineRows.push(y);
-                            }
-                        }
-                        // Cluster adjacent lines
-                        const clusters = [];
-                        let cur = [lineRows[0]];
-                        for (let i = 1; i < lineRows.length; i++) {
-                            if (lineRows[i] - lineRows[i-1] < 5) cur.push(lineRows[i]);
-                            else { clusters.push(cur); cur = [lineRows[i]]; }
-                        }
-                        if (cur.length) clusters.push(cur);
-                        const linePositions = clusters.map(c => Math.round(c.reduce((s,v)=>s+v,0)/c.length)).sort((a,b)=>a-b);
-                        if (linePositions.length < 3) { resolve(null); return; }
-                        // Compute spacings
-                        const spacings = [];
-                        for (let i = 1; i < linePositions.length; i++) spacings.push(linePositions[i] - linePositions[i-1]);
-                        spacings.sort((a,b)=>a-b);
-                        const medianSpace = spacings[Math.floor(spacings.length / 2)];
-                        // Bounding box of ruled area
-                        const t = linePositions[0] - medianSpace;
-                        const b = linePositions[linePositions.length - 1] + medianSpace;
-                        // Left/right from edge detection
-                        let left = 0, right = iw;
-                        for (let x = 0; x < iw; x++) {
-                            let edgeCount = 0;
-                            for (let y = t; y <= b; y += 2) {
-                                const i = (y * iw + x) * 4;
-                                const g = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
-                                if (g < 80) edgeCount++;
-                            }
-                            if (edgeCount > (b - t) / 2 * 0.3) { left = x; break; }
-                        }
-                        for (let x = iw - 1; x >= 0; x--) {
-                            let edgeCount = 0;
-                            for (let y = t; y <= b; y += 2) {
-                                const i = (y * iw + x) * 4;
-                                const g = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
-                                if (g < 80) edgeCount++;
-                            }
-                            if (edgeCount > (b - t) / 2 * 0.3) { right = x; break; }
-                        }
-                        const result = {
-                            x: left + medianSpace * 0.5, y: t,
-                            w: right - left - medianSpace, h: b - t,
-                            lineHeight: medianSpace,
-                            imgW: iw, imgH: ih
-                        };
-                        _analysisCache[imgSrc] = result;
-                        resolve(result);
-                    }
-                    resolve(null);
-                };
-                img.onerror = () => resolve(null);
-                img.src = imgSrc;
-            });
-        }
-
-        // ────────────────────────────────────────────── LOAD EDITOR LAYOUT
         async function loadEditorLayout() {
-            if (window.location.search.includes('editor=1')) return;
             const container = document.getElementById('decoContainer');
             if (!container) return;
             container.innerHTML = '';
-            const nameRegion = await analyzeImage('name is.png');
-            const saved = localStorage.getItem('editor_layout');
-            const nameHtml = '<span style="font-family:\'Permanent Marker\',cursive;font-size:clamp(14px,2.5vw,36px);color:#000;display:flex;align-items:center;justify-content:center;height:100%;text-align:center;">Your Name</span>';
-            const DEFAULT_LAYOUT = {"elements":[{"id":1,"type":"image","x":97,"y":103,"w":264,"h":255,"rotation":25.1262445910211,"src":"name is.png","imgName":"name is.png"},{"id":2,"type":"image","x":179,"y":279,"w":320,"h":320,"rotation":-11.743249337349425,"src":"to do.png","imgName":"to do.png"},{"id":3,"type":"text","x":1020,"y":0,"w":160,"h":50,"rotation":30,"text":"<span style=\"font-family:'Permanent Marker',cursive;font-size:32px;color:#000;display:flex;align-items:center;justify-content:center;height:100%;\">Your Name</span>"},{"id":4,"type":"text","x":139,"y":211,"w":131,"h":56,"rotation":27.480312944357138,"text":"Edit me…"},{"id":5,"type":"text","x":190,"y":323,"w":280,"h":80,"rotation":-39.09692211345069,"text":"Edit me…"}]};
-            let els;
-            if (saved) {
-                try {
-                    const data = JSON.parse(saved);
-                    els = data.elements || [];
-                    els = els.filter(el => (el.type === 'image' && !(el.imgName && el.imgName.toLowerCase().includes('to do'))));
-                } catch(e) { els = DEFAULT_LAYOUT.elements.filter(el => (el.type === 'image' && !(el.imgName && el.imgName.toLowerCase().includes('to do')))); }
-            } else {
-                els = DEFAULT_LAYOUT.elements.filter(el => (el.type === 'image' && !(el.imgName && el.imgName.toLowerCase().includes('to do'))));
-            }
-            const nameImg = els.find(el => el.type === 'image' && el.imgName && el.imgName.toLowerCase().includes('name'));
-            if (nameImg) { nameImg.x = 0; nameImg.y = 0; }
-            // Add name text at detected region
-            if (nameImg && nameRegion) {
-                const sx = nameImg.w / nameRegion.imgW, sy = nameImg.h / nameRegion.imgH;
-                const savedPos = localStorage.getItem('editor_name_pos');
-                let tx, ty, tw, th, trot;
-                if (savedPos) {
-                    try { const p = JSON.parse(savedPos); tx = p.x; ty = p.y; tw = p.w; th = p.h; trot = p.rotation || 0; } catch(e) {}
-                }
-                els.push({
-                    x: tx != null ? tx : nameImg.x + nameRegion.x * sx,
-                    y: ty != null ? ty : nameImg.y + nameRegion.y * sy,
-                    w: tw != null ? tw : nameRegion.w * sx,
-                    h: th != null ? th : nameRegion.h * sy,
-                    rotation: trot != null ? trot : nameImg.rotation || 0,
-                    type: 'text',
-                    text: nameHtml
-                });
-            } else if (nameImg && !nameRegion) {
-                els.push({
-                    x: nameImg.x + nameImg.w * 0.2, y: nameImg.y + nameImg.h * 0.3,
-                    w: nameImg.w * 0.6, h: nameImg.h * 0.4,
-                    rotation: nameImg.rotation || 0, type: 'text', text: nameHtml
-                });
-            }
-            els.forEach(el => {
+
+            const elements = [
+                { type: 'image', x: -90, y: -3, w: 614, h: 643, rotation: 0, src: 'The_Spectacular_Spider-Man_1968-removebg-preview.png', imgName: 'The_Spectacular_Spider-Man_1968-removebg-preview.png', spin: 0 },
+                { type: 'image', x: -74, y: 185, w: 367, h: 401, rotation: 0, src: 'download__77_-removebg-preview.png', imgName: 'download__77_-removebg-preview.png', spin: 0 },
+                { type: 'image', x: 779, y: 71, w: 97, h: 67, rotation: 0, src: 'Screenshot 2026-06-30 173847.png', imgName: 'Screenshot 2026-06-30 173847.png', spin: 0 },
+                { type: 'image', x: 740, y: 22, w: 182, h: 175, rotation: 0, src: '_collage__spiderman__marvel__marvelcomics-removebg-preview.png', imgName: '_collage__spiderman__marvel__marvelcomics-removebg-preview.png', spin: 1 },
+                { type: 'image', x: 1113, y: 1, w: 193, h: 169, rotation: 0, src: 'Adjusted-7.jpg', imgName: 'Adjusted-7.jpg', spin: 0 }
+            ];
+
+            elements.forEach(el => {
                 const div = document.createElement('div');
                 div.className = 'deco-el';
                 const rot = el.rotation ? `rotate(${el.rotation}deg)` : '';
                 div.style.cssText = `left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;transform:${rot};transform-origin:center center;`;
                 var imgName = el.imgName || '';
-                if (imgName.indexOf('data:') === 0) imgName = '';
                 div.setAttribute('data-name', imgName);
-                var isSpin = el.spin || ((imgName || el.src || '').toLowerCase().includes('_collage') || (imgName || el.src || '').toLowerCase().includes('collage'));
+                var isSpin = el.spin || (imgName.toLowerCase().includes('_collage') || imgName.toLowerCase().includes('collage'));
                 if (el.type === 'image') {
                     if (isSpin) {
                         div.classList.add('spin');
@@ -1733,16 +1807,11 @@
                 }
                 container.appendChild(div);
             });
-            // Start JS rotation for spinning elements
-            container.querySelectorAll('.deco-el.spin .spin-wrap').forEach(function(w) {
-                var angle = 0;
-                (function tick() {
-                    angle = (angle + 1) % 360;
-                    w.style.transform = 'rotate(' + angle + 'deg)';
-                    requestAnimationFrame(tick);
-                })();
-            });
         }
+
+        renderNameDisplay();
+        renderTodoOverlay();
+        renderTodoList();
         loadEditorLayout();
     </script>
     

@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html><body>
+<script>
+var data = localStorage.getItem('editor_layout');
+if (data) {
+    var parsed = JSON.parse(data);
+    document.body.textContent = JSON.stringify(parsed, null, 2);
+} else {
+    document.body.textContent = 'NO LAYOUT DATA FOUND';
+}
+</script>
+</body></html>
