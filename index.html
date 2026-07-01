@@ -335,7 +335,7 @@
             position: absolute; pointer-events: auto;
         }
         #decoContainer {
-            position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 20; overflow: hidden;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 20;
             user-select: none;
             -webkit-user-select: none;
             -webkit-touch-callout: none;
@@ -2313,10 +2313,6 @@
             if (!container) return;
             container.innerHTML = '';
 
-            const vw = window.innerWidth;
-            const vh = window.innerHeight;
-            const refW = 1920, refH = 1080;
-
             const elements = [
                 { type: 'image', x: -90, y: -3, w: 614, h: 643, rotation: 0, src: CDN_URL + 'The_Spectacular_Spider-Man_1968-removebg-preview.png', imgName: 'The_Spectacular_Spider-Man_1968-removebg-preview.png', spin: 0 },
                 { type: 'image', x: -74, y: 185, w: 367, h: 401, rotation: 0, src: CDN_URL + 'download__77_-removebg-preview.png', imgName: 'download__77_-removebg-preview.png', spin: 0 },
@@ -2329,11 +2325,7 @@
                 const div = document.createElement('div');
                 div.className = 'deco-el';
                 const rot = el.rotation ? `rotate(${el.rotation}deg)` : '';
-                const leftPct = (el.x / refW) * 100;
-                const topPct = (el.y / refH) * 100;
-                const wPct = (el.w / refW) * 100;
-                const hPct = (el.h / refH) * 100;
-                div.style.cssText = `left:${leftPct}%;top:${topPct}%;width:${wPct}%;height:${hPct}%;transform:${rot};transform-origin:center center;`;
+                div.style.cssText = `left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;transform:${rot};transform-origin:center center;`;
                 var imgName = el.imgName || '';
                 div.setAttribute('data-name', imgName);
                 var isSpin = el.spin || (imgName.toLowerCase().includes('_collage') || imgName.toLowerCase().includes('collage'));
