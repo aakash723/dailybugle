@@ -97,6 +97,9 @@
         .btn-read:hover { background: #d13850; }
         .btn-dl { background: rgba(255,255,255,0.08); color: #aab; }
         .btn-dl:hover { background: rgba(255,255,255,0.14); color: #fff; }
+        .btn-library { background: rgba(255,255,255,0.06); color: #7af; font-size: 10px; padding: 4px 8px; border: 1px solid #468; border-radius: 4px; cursor: pointer; }
+        .btn-library:hover { background: rgba(255,255,255,0.12); }
+        .btn-library.in-library { background: rgba(233,69,96,0.15); color: #e94560; border-color: #e94560; }
 
         .section-empty { text-align: center; padding: 40px 20px; color: #556; font-size: 13px; }
         .section-empty .icon { font-size: 32px; margin-bottom: 10px; opacity: 0.4; }
@@ -682,10 +685,7 @@
             div.appendChild(title);
 
             if (sectionId === 'library') {
-                const empty = document.createElement('div');
-                empty.className = 'section-empty';
-                empty.innerHTML = 'No comics downloaded yet.<br>Browse and download comics to build your library!';
-                div.appendChild(empty);
+                // populated by renderLibrarySection()
             } else if (sectionId === 'about') {
                 const about = document.createElement('div');
                 about.className = 'about-content';
@@ -805,6 +805,7 @@
                                     <div class="actions">
                                         <button class="btn-read">Read</button>
                                         <button class="btn-dl">Download</button>
+                                        <button class="btn-library"></button>
                                     </div>
                                 `;
                                 subCard.appendChild(cv);
@@ -816,7 +817,7 @@
                             // Re-init covers for this new grid
                             (async function loadSubCovers() {
                                 for (const comic of seriesComics) {
-                                    const cv = grid.querySelector(`.comic-card[data-comic-id="${comic.id}"] canvas.cover`);
+                                    const cv = grid.querySelector(`canvas.cover[data-comic-id="${comic.id}"]`);
                                     if (!cv) continue;
                                     await drawCoverOnCanvas(cv, thumbURL(comic.filename));
                                 }
@@ -848,9 +849,10 @@
                             <div class="actions">
                                 <button class="btn-read">Read</button>
                                 <button class="btn-dl">Download</button>
+                                <button class="btn-library"></button>
                             </div>
                         `;
-    
+
                         card.appendChild(cv);
                         card.appendChild(info);
                         grid.appendChild(card);
@@ -871,6 +873,7 @@
         sections.forEach(s => {
             scrollEl.appendChild(renderSection(s, sectionData[s]));
         });
+        renderLibrarySection();
 
         // ─── Load covers & metadata in parallel ───
         function drawCoverOnCanvas(cv, url) {
@@ -925,9 +928,9 @@
                 if (loaded.has(comic.id)) return;
                 loaded.add(comic.id);
                 try {
-                    await drawCoverOnAll(`.comic-card[data-comic-id="${comic.id}"] canvas.cover`, thumbURL(comic.filename));
+                    await drawCoverOnAll(`canvas.cover[data-comic-id="${comic.id}"]`, thumbURL(comic.filename));
                 } catch {
-                    document.querySelectorAll(`.comic-card[data-comic-id="${comic.id}"] canvas.cover`).forEach(cv => {
+                    document.querySelectorAll(`canvas.cover[data-comic-id="${comic.id}"]`).forEach(cv => {
                         const ctx = cv.getContext('2d');
                         ctx.fillStyle = '#1a1a2e';
                         ctx.fillRect(0, 0, cv.width, cv.height);
@@ -945,6 +948,12 @@
             }
         })();
 
+        // Init library button labels
+        document.querySelectorAll('.btn-library').forEach(btn => {
+            const card = btn.closest('.comic-card');
+            if (card) updateLibraryBtn(btn, parseInt(card.dataset.comicId));
+        });
+
         // ────────────────────────────────────────────── TAB SWITCHING
         function attachNavHandlers(){
             const navButtons = document.querySelectorAll('#navTabs button');
@@ -958,6 +967,7 @@
                         const el = document.getElementById(s + '-section');
                         if (el) el.classList.toggle('hidden', s !== section);
                     });
+                    if (section === 'library') renderLibrarySection();
                     scrollEl.scrollTop = 0;
                 });
             });
@@ -1330,31 +1340,118 @@
             }
         });
 
-        // Read button handler
-        document.addEventListener('click', (e) => {
-            const btn = e.target.closest('.btn-read');
-            if (!btn) return;
-            const card = btn.closest('.comic-card');
-            if (!card) return;
+        // ─── Library helpers ───
+        function getLibrary() {
+            try { return JSON.parse(localStorage.getItem('deco_library') || '[]'); } catch { return []; }
+        }
+        function setLibrary(ids) { localStorage.setItem('deco_library', JSON.stringify(ids)); }
+        function toggleLibrary(id) {
+            const ids = getLibrary();
+            const idx = ids.indexOf(id);
+            if (idx >= 0) ids.splice(idx, 1); else ids.push(id);
+            setLibrary(ids);
+            return idx < 0;
+        }
+        function isInLibrary(id) { return getLibrary().indexOf(id) >= 0; }
+        function updateLibraryBtn(btn, id) {
+            btn.textContent = isInLibrary(id) ? 'Remove' : 'Library';
+            btn.classList.toggle('in-library', isInLibrary(id));
+        }
+
+        // ─── Card click: open reader on thumbnail ───
+        function findComicFromCard(card) {
             const id = parseInt(card.dataset.comicId);
-            const comic = comics.find(c => c.id === id);
-            if (comic) openReader(comic);
+            return comics.find(c => c.id === id);
+        }
+
+        document.addEventListener('click', (e) => {
+            // Read button
+            const readBtn = e.target.closest('.btn-read');
+            if (readBtn) {
+                const card = readBtn.closest('.comic-card');
+                if (card) { const c = findComicFromCard(card); if (c) openReader(c); }
+                return;
+            }
+
+            // Download button
+            const dlBtn = e.target.closest('.btn-dl');
+            if (dlBtn) {
+                const card = dlBtn.closest('.comic-card');
+                if (card) {
+                    const c = findComicFromCard(card);
+                    if (c) {
+                        const a = document.createElement('a');
+                        a.href = comicURL(c.filename);
+                        a.download = c.filename;
+                        a.click();
+                    }
+                }
+                return;
+            }
+
+            // Library toggle button
+            const libBtn = e.target.closest('.btn-library');
+            if (libBtn) {
+                const card = libBtn.closest('.comic-card');
+                if (card) {
+                    const id = parseInt(card.dataset.comicId);
+                    if (id) {
+                        toggleLibrary(id);
+                        updateLibraryBtn(libBtn, id);
+                        // Refresh library section if visible
+                        const libSection = document.getElementById('library-section');
+                        if (libSection && !libSection.classList.contains('hidden')) {
+                            renderLibrarySection();
+                        }
+                    }
+                }
+                return;
+            }
+
+            // Thumbnail click (anywhere on card not hitting a button)
+            const card = e.target.closest('.comic-card');
+            if (card && !e.target.closest('button')) {
+                const c = findComicFromCard(card);
+                if (c) openReader(c);
+            }
         });
 
-        // Download handler
-        document.addEventListener('click', (e) => {
-            const btn = e.target.closest('.btn-dl');
-            if (!btn) return;
-            const card = btn.closest('.comic-card');
-            if (!card) return;
-            const id = parseInt(card.dataset.comicId);
-            const comic = comics.find(c => c.id === id);
-            if (!comic) return;
-            const a = document.createElement('a');
-            a.href = comicURL(comic.filename);
-            a.download = comic.filename;
-            a.click();
-        });
+        // ─── Library section rendering ───
+        function renderLibrarySection() {
+            const libSection = document.getElementById('library-section');
+            if (!libSection) return;
+            const ids = getLibrary();
+            if (!ids.length) {
+                libSection.innerHTML = '<div class="section-title">My Library</div><div class="section-empty">No comics in your library yet.<br>Browse and add comics to build your collection!</div>';
+                return;
+            }
+            const libComics = comics.filter(c => ids.indexOf(c.id) >= 0);
+            let html = '<div class="section-title">My Library</div><div class="comic-grid">';
+            libComics.forEach(comic => {
+                html += `
+                    <div class="comic-card" data-comic-id="${comic.id}">
+                        <canvas class="cover" width="200" height="300" data-comic-id="${comic.id}"></canvas>
+                        <div class="info">
+                            <div class="title">${comic.title}</div>
+                            <div class="sub">
+                                <span class="tag tag-${comic.category.toLowerCase()}">${comic.category}</span>
+                                <span>${comic.year}</span>
+                            </div>
+                            <div class="actions">
+                                <button class="btn-read">Read</button>
+                                <button class="btn-dl">Download</button>
+                                <button class="btn-library"></button>
+                            </div>
+                        </div>
+                    </div>`;
+            });
+            html += '</div>';
+            libSection.innerHTML = html;
+            // Load covers for library cards
+            libComics.forEach(comic => {
+                drawCoverOnAll(`canvas.cover[data-comic-id="${comic.id}"]`, thumbURL(comic.filename)).catch(() => {});
+            });
+        }
 
         const videoOverlay = document.getElementById('videoOverlay');
         const videoOverlayClose = document.getElementById('videoOverlayClose');
