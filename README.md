@@ -1,4 +1,4 @@
-# World Comics — Interactive 3D Comic Library
+# Bugle Comics — Interactive 3D Comic Library
 
 > A single-page web application that renders a **3D comic library scene** (Babylon.js), provides an **auth gate**, a **comic grid** with search/filter, a **turn.js flipbook reader** + **PDF.js viewer**, and a **video player** — all client-side, hosted on **GitHub Pages** with assets served via **Git LFS CDN**.
 
@@ -30,7 +30,7 @@
 
 ## Project Overview
 
-**World Comics** is a fully client-side web application built to showcase, browse, read, and organize digital comic books. It features:
+**Bugle Comics** is a fully client-side web application built to showcase, browse, read, and organize digital comic books. It features:
 
 - A **3D scene** (Babylon.js) with rotating comic planes, a laptop playing video, and hover interactions
 - An **auth gate** (signup/signin) that controls access on desktop
@@ -67,7 +67,7 @@ All 116 comic PDFs, 142+ PNG thumbnails, and video assets are stored in **Git LF
 
 ## Architecture & Backend Infrastructure
 
-Despite being a **client-side** application, World Comics relies on a robust backend infrastructure — it just isn't code we wrote:
+Despite being a **client-side** application, Bugle Comics relies on a robust backend infrastructure — it just isn't code we wrote:
 
 | Component | What It Does |
 |-----------|-------------|
@@ -556,7 +556,7 @@ Located in `book-effect-20260629T174713Z-3-001/book-effect/`, this is a standalo
 - Uses the same turn.js + jQuery stack as the main app
 - 5 Pokemon images (`img-1.png` through `img-5.png`)
 - Separate `style.css` with custom theming
-- Fully independent from the main World Comics app
+- Fully independent from the main Bugle Comics app
 
 ---
 

@@ -12,7 +12,7 @@ class ProjectReport(FPDF):
         if self.page_no() > 1:
             self.set_font("Helvetica", "I", 8)
             self.set_text_color(120, 120, 120)
-            self.cell(0, 8, "World Comics - Project Report", align="L")
+            self.cell(0, 8, "Bugle Comics - Project Report", align="L")
             self.cell(0, 8, f"Page {self.page_no()}", align="R", new_x="LMARGIN", new_y="NEXT")
 
     def footer(self):
@@ -106,7 +106,7 @@ def build_report():
     pdf.ln(50)
     pdf.set_font("Helvetica", "B", 32)
     pdf.set_text_color(20, 60, 120)
-    pdf.cell(0, 15, "WORLD COMICS", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 15, "BUGLE COMICS", align="C", new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", "", 18)
     pdf.set_text_color(80, 80, 80)
     pdf.cell(0, 12, "Interactive 3D Comic Library", align="C", new_x="LMARGIN", new_y="NEXT")
@@ -180,7 +180,7 @@ def build_report():
     pdf.add_page()
     pdf.chapter_title("1. Project Overview")
     pdf.body_text(
-        "World Comics is a fully client-side web application built to showcase, browse, read, and organize "
+        "Bugle Comics is a fully client-side web application built to showcase, browse, read, and organize "
         "digital comic books. It features a 3D scene (Babylon.js) with rotating comic planes and a laptop "
         "playing video, an auth gate (signup/signin) that controls access on desktop, a comic grid organized "
         "into Marvel and DC sections with thumbnail covers, two reader modes (turn.js flipbook with page-flip "
@@ -219,7 +219,7 @@ def build_report():
     pdf.add_page()
     pdf.chapter_title("3. Architecture & Backend Infrastructure")
     pdf.body_text(
-        "Despite being a client-side application, World Comics relies on a robust backend infrastructure - "
+        "Despite being a client-side application, Bugle Comics relies on a robust backend infrastructure - "
         "it just isn't code we wrote. The backend is entirely GitHub's infrastructure:"
     )
     arch_data = [
@@ -734,7 +734,7 @@ def build_report():
         "Uses the same turn.js + jQuery stack as the main app",
         "5 Pokemon images (img-1.png through img-5.png)",
         "Separate style.css with custom theming",
-        "Fully independent from the main World Comics app",
+        "Fully independent from the main Bugle Comics app",
     ]
     for p in poke_items:
         pdf.bullet(p)
@@ -759,7 +759,7 @@ def build_report():
     pdf.cell(0, 8, "Generated: July 2026", align="C", new_x="LMARGIN", new_y="NEXT")
 
     # Save
-    output_path = os.path.join(os.path.dirname(__file__), "World_Comics_Project_Report.pdf")
+    output_path = os.path.join(os.path.dirname(__file__), "Bugle_Comics_Project_Report.pdf")
     pdf.output(output_path)
     print(f"PDF generated: {output_path}")
     return output_path
