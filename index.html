@@ -1649,7 +1649,7 @@
             mat.backFaceCulling = false;
             mesh.material = mat;
 
-            const cleanSrc = comic.filename.replace(/#/g, '%23').replace(/ /g, '%20');
+            const cleanSrc = comic.filename.startsWith('http') ? comic.filename : comicURL(comic.filename);
             if (comic.filename.match(/\.(png|jpg|jpeg)$/i)) {
                 const img = new Image();
                 img.onload = () => { ctx.drawImage(img, 0, 0, 512, 768); tex.update(false); };
