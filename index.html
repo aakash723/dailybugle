@@ -886,15 +886,19 @@
             });
         }
 
-        async function loadComicCover(comic) {
-            const cv = document.querySelector(`.comic-card[data-comic-id="${comic.id}"] canvas.cover`);
-            if (!cv) return;
-            const ok = await drawCoverOnCanvas(cv, thumbURL(comic.filename));
-            if (!ok) {
+        async function drawCoverOnAll(query, url) {
+            const cvs = document.querySelectorAll(query);
+            if (!cvs.length) return;
+            const img = new Image();
+            await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = reject;
+                img.src = url;
+            });
+            cvs.forEach(cv => {
                 const ctx = cv.getContext('2d');
-                ctx.fillStyle = '#1a1a2e';
-                ctx.fillRect(0, 0, cv.width, cv.height);
-            }
+                ctx.drawImage(img, 0, 0, cv.width, cv.height);
+            });
         }
 
         (async function loadCovers() {
@@ -920,13 +924,14 @@
             async function loadOne(comic) {
                 if (loaded.has(comic.id)) return;
                 loaded.add(comic.id);
-                const cv = document.querySelector(`.comic-card[data-comic-id="${comic.id}"] canvas.cover`);
-                if (!cv) return;
-                const ok = await drawCoverOnCanvas(cv, thumbURL(comic.filename));
-                if (!ok) {
-                    const ctx = cv.getContext('2d');
-                    ctx.fillStyle = '#1a1a2e';
-                    ctx.fillRect(0, 0, cv.width, cv.height);
+                try {
+                    await drawCoverOnAll(`.comic-card[data-comic-id="${comic.id}"] canvas.cover`, thumbURL(comic.filename));
+                } catch {
+                    document.querySelectorAll(`.comic-card[data-comic-id="${comic.id}"] canvas.cover`).forEach(cv => {
+                        const ctx = cv.getContext('2d');
+                        ctx.fillStyle = '#1a1a2e';
+                        ctx.fillRect(0, 0, cv.width, cv.height);
+                    });
                 }
             }
 
