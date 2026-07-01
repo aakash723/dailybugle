@@ -1637,33 +1637,32 @@
         }
 
         async function paintComicOnPlane(mesh, comic, scene) {
-            const tex = new BABYLON.DynamicTexture(mesh.name + 'ComicTex', { width: 512, height: 768 }, scene, false);
-            const ctx = tex.getContext();
-            ctx.fillStyle = '#1a1a2e';
-            ctx.fillRect(0, 0, 512, 768);
-            tex.update(false);
-
             const mat = new BABYLON.StandardMaterial(mesh.name + 'ComicMat', scene);
-            mat.diffuseTexture = tex;
-            mat.emissiveTexture = tex;
-            mat.specularColor = new BABYLON.Color3(0, 0, 0); 
+            mat.specularColor = new BABYLON.Color3(0, 0, 0);
             mat.emissiveColor = new BABYLON.Color3(1, 1, 1);
             mat.backFaceCulling = false;
             mesh.material = mat;
 
-            const cleanSrc = comic.filename.startsWith('http') ? comic.filename : comicURL(comic.filename);
+            const src = comic.filename.startsWith('http') ? comic.filename : comicURL(comic.filename);
             if (comic.filename.match(/\.(png|jpg|jpeg)$/i)) {
-                const img = new Image();
-                img.crossOrigin = 'anonymous';
-                img.onload = () => { ctx.drawImage(img, 0, 0, 512, 768); tex.update(false); };
-                img.onerror = () => console.warn('Failed to load plane texture:', cleanSrc);
-                img.src = cleanSrc;
+                const tex = new BABYLON.Texture(src, scene);
+                tex.invertY = false;
+                tex.hasAlpha = true;
+                mat.diffuseTexture = tex;
+                mat.emissiveTexture = tex;
             } else {
                 loadPDF(comic.filename).then(async (pdf) => {
                     const canvas = document.createElement('canvas');
-                    await renderPDFpage(pdf, 1, canvas, 0.2); 
+                    await renderPDFpage(pdf, 1, canvas, 0.2);
                     const img = new Image();
-                    img.onload = () => { ctx.drawImage(img, 0, 0, 512, 768); tex.update(false); };
+                    img.onload = () => {
+                        const tex = new BABYLON.DynamicTexture(mesh.name + 'ComicTex', { width: 512, height: 768 }, scene, false);
+                        const ctx = tex.getContext();
+                        ctx.drawImage(img, 0, 0, 512, 768);
+                        tex.update(false);
+                        mat.diffuseTexture = tex;
+                        mat.emissiveTexture = tex;
+                    };
                     img.src = canvas.toDataURL('image/jpeg');
                 }).catch(err => console.error('Failed to load cover:', comic.filename, err));
             }
