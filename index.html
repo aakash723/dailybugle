@@ -490,13 +490,12 @@
     
     <script>
         // ────────────────────────────────────────────── PDF COMICS ENGINE
-        const COMICS_DIR = '/'; 
+        const COMICS_DIR = './'; 
         const pdfCache = new Map();
 
         function comicURL(filename) { 
             if (filename.startsWith('http')) return filename;
-            let path = filename.startsWith('/') ? filename : '/' + filename;
-            return path.replace(/#/g, '%23').replace(/ /g, '%20'); 
+            return COMICS_DIR + filename.replace(/#/g, '%23').replace(/ /g, '%20'); 
         }
 
         async function loadPDF(filename) {
