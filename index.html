@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://vjs.zencdn.net">
@@ -14,7 +14,7 @@
         @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap');
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body { width: 100%; height: 100%; overflow: hidden; background: #111; font-family: 'Segoe UI', system-ui, sans-serif; }
-        #renderCanvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: block; }
+        #renderCanvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 
         #overlay {
             position: fixed; top: 0; right: 0; width: 40%; height: 100%;
@@ -60,6 +60,7 @@
 
         .overlay-scroll {
             flex: 1; overflow-y: auto; padding: 16px 20px 40px;
+            -webkit-overflow-scrolling: touch;
         }
         .overlay-scroll::-webkit-scrollbar { width: 4px; }
         .overlay-scroll::-webkit-scrollbar-track { background: transparent; }
@@ -433,6 +434,24 @@
         }
         #viewPanel:not(.inactive) ~ .deco-panel { display: none; }
         .editor-mode .deco-panel { display: none !important; }
+        @media (max-width: 768px) {
+            #renderCanvas { display: none; }
+            body { background: #0a0814; }
+            #overlay { width: 100%; border-left: none; }
+            .overlay-nav { overflow-x: auto; -webkit-overflow-scrolling: touch; gap: 0; }
+            .overlay-nav button { flex-shrink: 0; padding: 12px 10px; font-size: 11px; }
+            .comic-grid { grid-template-columns: 1fr; gap: 10px; }
+            .comic-card .info .title { font-size: 13px; }
+            .comic-card .info .sub { font-size: 11px; }
+            .comic-card .info .sub .tag { font-size: 10px; }
+            .comic-card .info .actions button { font-size: 12px; padding: 6px 12px; }
+            .btn-library { font-size: 11px; padding: 5px 8px; }
+            #readerHint { font-size: 11px; left: 50%; transform: translateX(-50%); }
+            .reader-top { flex-wrap: wrap; }
+            .reader-top .title { width: 100%; order: -1; font-size: 12px; }
+            #decoName { display: none; }
+            #decoTodo { display: none; }
+        }
     </style>
     <link href="https://vjs.zencdn.net/8.28.0/video-js.css" rel="stylesheet" />
 </head>
@@ -1342,6 +1361,18 @@
                 readerNext();
             }
         });
+        // Swipe gesture for reader
+        (function() {
+            const rb = document.getElementById('readerBody');
+            let sx = 0;
+            rb.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; }, { passive: true });
+            rb.addEventListener('touchend', (e) => {
+                const dx = e.changedTouches[0].clientX - sx;
+                if (Math.abs(dx) > 40) {
+                    if (dx > 0) readerPrev(); else readerNext();
+                }
+            }, { passive: true });
+        })();
 
         // ─── Library helpers ───
         function getLibrary() {
@@ -1546,7 +1577,10 @@
             if (e.target === videoOverlay) hideSpecialFullscreenVideo();
         });
 
-        // ────────────────────────────────────────────── BABYLON 3D SCENE
+        const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+        // ────────────────────────────────────────────── BABYLON 3D SCENE (desktop only)
+        if (!isMobile) {
         const canvas = document.getElementById('renderCanvas');
         const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
         engine.setHardwareScalingLevel(1);
@@ -1977,18 +2011,6 @@
             return scene;
         }
 
-        // Show loading.mp4 for 13s while 3D loads in background
-        const loadingEl = document.getElementById('loading');
-        const loadingVideo = document.getElementById('loadingVideo');
-
-        function hideLoading() { loadingEl.classList.add('hidden'); }
-
-        loadingVideo.addEventListener('ended', hideLoading);
-        loadingVideo.src = CDN_URL + 'loding.mp4';
-        loadingVideo.load();
-        loadingVideo.play().catch(() => {});
-        setTimeout(hideLoading, 13000);
-
         init().then(scene => {
             engine.runRenderLoop(() => scene.render());
         }).catch(err => {
@@ -2000,6 +2022,17 @@
         });
 
         window.addEventListener('resize', () => engine.resize());
+        }
+
+        // Show loading.mp4 for 13s (runs on desktop and mobile)
+        const loadingEl = document.getElementById('loading');
+        const loadingVideo = document.getElementById('loadingVideo');
+        function hideLoading() { loadingEl.classList.add('hidden'); }
+        loadingVideo.addEventListener('ended', hideLoading);
+        loadingVideo.src = CDN_URL + 'loding.mp4';
+        loadingVideo.load();
+        loadingVideo.play().catch(() => {});
+        setTimeout(hideLoading, 13000);
 
         // ────────────────────────────────────────────── PROFILE / TODO
         function renderTodoOverlay() {
