@@ -435,9 +435,7 @@
 </head>
 <body>
     <div id="loading">
-        <video id="loadingVideo" autoplay muted playsinline>
-            <source src="loding.mp4" type="video/mp4">
-        </video>
+        <video id="loadingVideo" autoplay muted playsinline></video>
     </div>
     <div id="decoContainer"></div>
     <div id="overlay">
@@ -490,7 +488,8 @@
     
     <script>
         // ────────────────────────────────────────────── PDF COMICS ENGINE
-        const COMICS_DIR = './'; 
+        const CDN_URL = 'https://cdn.example.com/'; // Change this to your CDN URL for PDFs/MP4s
+        const COMICS_DIR = CDN_URL;
         const pdfCache = new Map();
 
         function comicURL(filename) { 
@@ -1723,7 +1722,7 @@
             });
 
             if (laptop) {
-                const laptopVideoSrc = './videoplayback.mp4';
+                const laptopVideoSrc = CDN_URL + 'videoplayback.mp4';
                 const mat = new BABYLON.StandardMaterial('laptopMat', scene);
                 mat.emissiveColor = BABYLON.Color3.White();
                 mat.specularColor = new BABYLON.Color3(0, 0, 0);
@@ -1892,6 +1891,7 @@
         function hideLoading() { loadingEl.classList.add('hidden'); }
 
         loadingVideo.addEventListener('ended', hideLoading);
+        loadingVideo.src = CDN_URL + 'loding.mp4';
         loadingVideo.load();
         loadingVideo.play().catch(() => {});
         setTimeout(hideLoading, 13000);

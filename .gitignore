@@ -1,6 +1,3 @@
-
+*.pdf
+*.mp4
 *.zip
-*.py
-*.ps1
-dd.png.kra
-desktop.ini
