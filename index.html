@@ -434,6 +434,69 @@
         }
         #viewPanel:not(.inactive) ~ .deco-panel { display: none; }
         .editor-mode .deco-panel { display: none !important; }
+
+        /* ─── Signup Overlay ─── */
+        #signupOverlay {
+            position: fixed; inset: 0; z-index: 100;
+            display: none; align-items: center; justify-content: center;
+            background: #111; overflow: hidden;
+        }
+        #signupOverlay.visible { display: flex; }
+        #signupOverlay .bg-deco {
+            position: absolute; inset: 0; pointer-events: none; overflow: hidden;
+        }
+        #signupOverlay .circle {
+            position: absolute; border-radius: 50%;
+            background: radial-gradient(circle, rgba(233,69,96,0.05) 0%, transparent 70%);
+        }
+        #signupOverlay .c1 { width: 400px; height: 400px; top: -100px; right: -100px; }
+        #signupOverlay .c2 { width: 300px; height: 300px; bottom: -50px; left: -50px; }
+        #signupOverlay .signup-container {
+            width: 100%; max-width: 420px; padding: 40px;
+            background: rgba(10, 8, 20, 0.9);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            text-align: center; position: relative; z-index: 1;
+        }
+        #signupOverlay .signup-container h1 {
+            font-size: 32px; color: #fff; margin-bottom: 8px;
+        }
+        #signupOverlay .signup-container p {
+            font-size: 14px; color: #667; margin-bottom: 28px;
+        }
+        #signupOverlay .form-group {
+            text-align: left; margin-bottom: 16px;
+        }
+        #signupOverlay .form-group label {
+            display: block; font-size: 11px; color: #667;
+            text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; font-weight: 600;
+        }
+        #signupOverlay .form-group input {
+            width: 100%; padding: 12px 16px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px; color: #ccc; font-size: 15px; outline: none; transition: 0.2s;
+        }
+        #signupOverlay .form-group input:focus {
+            border-color: #e94560; background: rgba(255,255,255,0.08);
+        }
+        #signupOverlay .btn-submit {
+            width: 100%; padding: 14px; background: #e94560; color: #fff;
+            border: none; border-radius: 8px; font-size: 16px; font-weight: 600;
+            cursor: pointer; transition: 0.2s; margin-top: 8px;
+        }
+        #signupOverlay .btn-submit:hover { background: #d13850; transform: translateY(-1px); }
+        #signupOverlay .btn-submit:disabled { background: #445; cursor: not-allowed; transform: none; }
+        #signupOverlay .skip-link {
+            margin-top: 20px; font-size: 13px; color: #667;
+        }
+        #signupOverlay .skip-link a { color: #e94560; text-decoration: none; font-weight: 600; cursor: pointer; }
+        #signupOverlay .skip-link a:hover { text-decoration: underline; }
+        #signupOverlay .status-msg {
+            margin-top: 12px; font-size: 13px; display: none; padding: 10px; border-radius: 6px;
+        }
+        #signupOverlay .status-msg.success { display: block; background: rgba(46,204,113,0.1); color: #2ecc71; }
+        #signupOverlay .status-msg.error { display: block; background: rgba(231,69,96,0.1); color: #e94560; }
         @media (max-width: 768px) {
             #renderCanvas { display: none; }
             body { background: #0a0814; }
@@ -458,6 +521,34 @@
 <body>
     <div id="loading">
         <video id="loadingVideo" autoplay muted playsinline></video>
+    </div>
+    <div id="signupOverlay">
+        <div class="bg-deco"><div class="circle c1"></div><div class="circle c2"></div></div>
+        <div class="signup-container">
+            <h1>Create Account</h1>
+            <p>Join the ultimate digital comic library</p>
+            <form id="signupForm">
+                <div class="form-group">
+                    <label for="fullName">Full Name</label>
+                    <input type="text" id="fullName" name="fullName" placeholder="Peter Parker" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" placeholder="peter@dailybugle.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" placeholder="••••••••" required>
+                </div>
+                <div class="form-group">
+                    <label for="favoriteComic">Favorite Comic (Optional)</label>
+                    <input type="text" id="favoriteComic" name="favoriteComic" placeholder="Amazing Spider-Man">
+                </div>
+                <button type="submit" class="btn-submit" id="signupBtn">Sign Up</button>
+            </form>
+            <div id="signupStatus" class="status-msg"></div>
+            <div class="skip-link">Already a member? <a id="skipSignup">Enter Library</a></div>
+        </div>
     </div>
     <div id="decoContainer"></div>
     <div id="overlay">
@@ -2024,15 +2115,57 @@
         window.addEventListener('resize', () => engine.resize());
         }
 
-        // Show loading.mp4 for 13s (runs on desktop and mobile)
+        // ─── Signup gate: check if user has signed up ───
+        const signupOverlay = document.getElementById('signupOverlay');
         const loadingEl = document.getElementById('loading');
         const loadingVideo = document.getElementById('loadingVideo');
         function hideLoading() { loadingEl.classList.add('hidden'); }
-        loadingVideo.addEventListener('ended', hideLoading);
-        loadingVideo.src = CDN_URL + 'loding.mp4';
-        loadingVideo.load();
-        loadingVideo.play().catch(() => {});
-        setTimeout(hideLoading, 13000);
+
+        function proceedToApp() {
+            signupOverlay.classList.remove('visible');
+            loadingVideo.addEventListener('ended', hideLoading);
+            loadingVideo.src = CDN_URL + 'loding.mp4';
+            loadingVideo.load();
+            loadingVideo.play().catch(() => {});
+            setTimeout(hideLoading, 13000);
+        }
+
+        if (localStorage.getItem('deco_name')) {
+            proceedToApp();
+        } else {
+            signupOverlay.classList.add('visible');
+            loadingEl.classList.add('hidden');
+        }
+
+        // Signup form handler
+        const signupForm = document.getElementById('signupForm');
+        const signupBtn = document.getElementById('signupBtn');
+        const signupStatus = document.getElementById('signupStatus');
+        signupForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            signupBtn.disabled = true;
+            signupBtn.textContent = 'Creating account...';
+            signupStatus.textContent = ''; signupStatus.className = 'status-msg';
+
+            const data = Object.fromEntries(new FormData(signupForm).entries());
+            try {
+                await fetch('https://script.google.com/macros/s/AKfycbz9Gh8LxAcqvy2KLk_5cybq5Z-b92xFv6xGDksHyM63LrMQj5WTxObEDxS4B3rtPYVKuw/exec', {
+                    method: 'POST', mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+            } catch (_) { /* no-cors, can't read response */ }
+            localStorage.setItem('deco_name', data.fullName);
+            localStorage.setItem('deco_email', data.email);
+            localStorage.setItem('deco_favorite', data.favoriteComic || 'None');
+            signupStatus.textContent = 'Welcome! Loading library...'; signupStatus.className = 'status-msg success';
+            setTimeout(() => { signupBtn.disabled = false; signupBtn.textContent = 'Sign Up'; proceedToApp(); }, 800);
+        });
+
+        document.getElementById('skipSignup').addEventListener('click', (e) => {
+            e.preventDefault();
+            proceedToApp();
+        });
 
         // ────────────────────────────────────────────── PROFILE / TODO
         function renderTodoOverlay() {
