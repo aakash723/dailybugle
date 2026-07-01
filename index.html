@@ -258,16 +258,13 @@
 
         #loading {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            background: #111; color: #ccc; font: 16px sans-serif; z-index: 200;
+            background: #000; z-index: 200;
             transition: opacity 0.5s;
         }
         #loading.hidden { opacity: 0; pointer-events: none; }
-        #loading .spinner {
-            width: 36px; height: 36px; border: 3px solid #333; border-top-color: #e94560;
-            border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 14px;
+        #loading video {
+            width: 100%; height: 100%; object-fit: cover;
         }
-        @keyframes spin { to { transform: rotate(360deg); } }
 
         .profile-card {
             background: rgba(255,255,255,0.04); border-radius: 12px; padding: 20px; margin-bottom: 20px;
@@ -437,7 +434,11 @@
     <link href="https://vjs.zencdn.net/8.28.0/video-js.css" rel="stylesheet" />
 </head>
 <body>
-    <div id="loading"><div class="spinner"></div>Loading…</div>
+    <div id="loading">
+        <video id="loadingVideo" autoplay muted playsinline>
+            <source src="loding.mp4" type="video/mp4">
+        </video>
+    </div>
     <div id="decoContainer"></div>
     <div id="overlay">
         <div class="overlay-header">
@@ -489,11 +490,14 @@
     
     <script>
         // ────────────────────────────────────────────── PDF COMICS ENGINE
-        // Point to your local server instead of relative directory
-        const COMICS_DIR = 'http://localhost:8080/comics/'; 
+        const COMICS_DIR = '/'; 
         const pdfCache = new Map();
 
-        function comicURL(filename) { return COMICS_DIR + filename.replace(/#/g, '%23').replace(/ /g, '%20'); }
+        function comicURL(filename) { 
+            if (filename.startsWith('http')) return filename;
+            let path = filename.startsWith('/') ? filename : '/' + filename;
+            return path.replace(/#/g, '%23').replace(/ /g, '%20'); 
+        }
 
         async function loadPDF(filename) {
             if (pdfCache.has(filename)) return pdfCache.get(filename);
@@ -649,6 +653,7 @@
                 filename: fullFilename,
                 title: title,
                 category: detectCategory(f.path),
+                path: f.path, // Added missing path
                 year: extractYear(f.name),
                 pages: 'PDF',
                 pdf: null,
@@ -685,8 +690,7 @@
                 about.innerHTML = `
                     <h3>About Bugle Comics</h3>
                     <p>Welcome to <strong>Bugle Comics</strong>, a platform built for comic fans who love discovering and enjoying great stories.</p>
-                    <p>Bugle Comics aims to provide a clean, fast, and immersive reading experience, making it easy to browse, organize, and enjoy comics across a variety of genres. Our focus is on creating an enjoyable experience for readers with an intuitive interface and a growing collection of content from creators and publishers who have chosen to share their work through the platform.</p>
-                    <p>Whether you're exploring classic adventures, discovering new creators, or revisiting your favorite stories, Bugle Comics is designed to put the reading experience first.</p>
+                    <p>Bugle Comics aims to provide a clean, fast, and immersive reading experience, making it easy to browse, organize, and enjoy comics across a variety of genres.</p>
                     <p>Happy reading, and welcome to Bugle Comics.</p>
                 `;
                 div.appendChild(about);
@@ -730,36 +734,130 @@
                 const grid = document.createElement('div');
                 grid.className = 'comic-grid';
 
-                items.forEach(comic => {
-                    const card = document.createElement('div');
-                    card.className = 'comic-card';
-                    card.dataset.comicId = comic.id;
+                // If it's a category section (Marvel/DC), group by series path
+                if (sectionId === 'marvel' || sectionId === 'dc') {
+                    const grouped = items.reduce((acc, comic) => {
+                        if (!acc[comic.path]) acc[comic.path] = [];
+                        acc[comic.path].push(comic);
+                        return acc;
+                    }, {});
 
-                    const cv = document.createElement('canvas');
-                    cv.className = 'cover';
-                    cv.width = 200; cv.height = 300;
-                    cv.dataset.comicId = comic.id;
+                    Object.keys(grouped).forEach(path => {
+                        const seriesComics = grouped[path];
+                        const firstComic = seriesComics[0];
+                        const seriesName = path.split('/').filter(p => p && p !== 'all_comics').pop().replace(/_/g, ' ') || 'Unknown Series';
 
-                    const info = document.createElement('div');
-                    info.className = 'info';
-                    info.innerHTML = `
-                        <div class="title">${comic.title}</div>
-                        <div class="sub">
-                            <span class="tag tag-${comic.category.toLowerCase()}">${comic.category}</span>
-                            <span>${comic.year}</span>
-                            <span class="pagesize">${comic.pages}</span>
-                        </div>
-                        <div class="actions">
-                            <button class="btn-read">Read</button>
-                            <button class="btn-dl">Download</button>
-                        </div>
-                    `;
+                        const card = document.createElement('div');
+                        card.className = 'comic-card';
+                        card.dataset.seriesPath = path;
 
-                    card.appendChild(cv);
-                    card.appendChild(info);
-                    grid.appendChild(card);
-                });
+                        const cv = document.createElement('canvas');
+                        cv.className = 'cover';
+                        cv.width = 200; cv.height = 300;
+                        cv.dataset.comicId = firstComic.id; // Use first issue cover
 
+                        const info = document.createElement('div');
+                        info.className = 'info';
+                        info.innerHTML = `
+                            <div class="title">${seriesName}</div>
+                            <div class="sub">
+                                <span class="tag tag-${firstComic.category.toLowerCase()}">${seriesComics.length} issues</span>
+                            </div>
+                        `;
+
+                        card.appendChild(cv);
+                        card.appendChild(info);
+                        card.addEventListener('click', () => {
+                            const sectionDiv = card.closest('div[id$="-section"]');
+                            sectionDiv.innerHTML = '';
+
+                            const backBtn = document.createElement('button');
+                            backBtn.className = 'btn-read';
+                            backBtn.textContent = '← Back to Series';
+                            backBtn.style.marginBottom = '20px';
+                            backBtn.onclick = () => location.reload();
+                            sectionDiv.appendChild(backBtn);
+
+                            const grid = document.createElement('div');
+                            grid.className = 'comic-grid';
+                            
+                            seriesComics.forEach(comic => {
+                                const subCard = document.createElement('div');
+                                subCard.className = 'comic-card';
+                                subCard.dataset.comicId = comic.id;
+                                
+                                const cv = document.createElement('canvas');
+                                cv.className = 'cover';
+                                cv.width = 200; cv.height = 300;
+                                cv.dataset.comicId = comic.id;
+                                
+                                const info = document.createElement('div');
+                                info.className = 'info';
+                                info.innerHTML = `
+                                    <div class="title">${comic.title}</div>
+                                    <div class="sub">
+                                        <span class="tag tag-${comic.category.toLowerCase()}">${comic.category}</span>
+                                        <span>${comic.year}</span>
+                                        <span class="pagesize">${comic.pages}</span>
+                                    </div>
+                                    <div class="actions">
+                                        <button class="btn-read">Read</button>
+                                        <button class="btn-dl">Download</button>
+                                    </div>
+                                `;
+                                subCard.appendChild(cv);
+                                subCard.appendChild(info);
+                                grid.appendChild(subCard);
+                            });
+                            sectionDiv.appendChild(grid);
+                            
+                            // Re-init covers for this new grid
+                            (async function loadSubCovers() {
+                                for (const comic of seriesComics) {
+                                    const cv = grid.querySelector(`.comic-card[data-comic-id="${comic.id}"] canvas.cover`);
+                                    if (!cv) continue;
+                                    try {
+                                        const pdf = await loadPDF(comic.filename);
+                                        comic.pdf = pdf;
+                                        await renderPDFpage(pdf, 1, cv, 0.5);
+                                    } catch (err) { /* handle load error */ }
+                                }
+                            })();
+                        });
+                        grid.appendChild(card);
+                    });
+                } else {
+                    // Home: List all randomized
+                    items.forEach(comic => {
+                        const card = document.createElement('div');
+                        card.className = 'comic-card';
+                        card.dataset.comicId = comic.id;
+    
+                        const cv = document.createElement('canvas');
+                        cv.className = 'cover';
+                        cv.width = 200; cv.height = 300;
+                        cv.dataset.comicId = comic.id;
+    
+                        const info = document.createElement('div');
+                        info.className = 'info';
+                        info.innerHTML = `
+                            <div class="title">${comic.title}</div>
+                            <div class="sub">
+                                <span class="tag tag-${comic.category.toLowerCase()}">${comic.category}</span>
+                                <span>${comic.year}</span>
+                                <span class="pagesize">${comic.pages}</span>
+                            </div>
+                            <div class="actions">
+                                <button class="btn-read">Read</button>
+                                <button class="btn-dl">Download</button>
+                            </div>
+                        `;
+    
+                        card.appendChild(cv);
+                        card.appendChild(info);
+                        grid.appendChild(card);
+                    });
+                }
                 div.appendChild(grid);
             }
 
@@ -776,21 +874,64 @@
             scrollEl.appendChild(renderSection(s, sectionData[s]));
         });
 
-        // ─── Load covers & metadata asynchronously ───
+        // ─── Load covers & metadata in parallel ───
+        async function loadComicCover(comic) {
+            const cv = document.querySelector(`.comic-card[data-comic-id="${comic.id}"] canvas.cover`);
+            if (!cv) return;
+            try {
+                const pdf = await loadPDF(comic.filename);
+                comic.pdf = pdf;
+                comic.numPages = pdf.numPages;
+                comic.loaded = true;
+
+                const sizeEl = document.querySelector(`.comic-card[data-comic-id="${comic.id}"] .pagesize`);
+                if (sizeEl) sizeEl.textContent = pdf.numPages + ' pages';
+
+                await renderPDFpage(pdf, 1, cv, 0.5);
+            } catch (err) {
+                console.warn('Failed to load cover:', comic.filename, err);
+                const ctx = cv.getContext('2d');
+                ctx.fillStyle = '#1a1a2e';
+                ctx.fillRect(0, 0, cv.width, cv.height);
+                ctx.fillStyle = '#445';
+                ctx.font = '12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Load failed', cv.width / 2, cv.height / 2);
+            }
+        }
+
         (async function loadCovers() {
-            for (const comic of comics) {
+            const priorityFiles = [
+                'all_comics/Daredevil(2023)/Daredevil(2023)#7.pdf',
+                'all_comics/Spider-Girl(2025)/Spider-Girl(2025)#5.pdf',
+                'all_comics/Thor God of Thunder(2022)/Thor God of Thunder(2022)#7.pdf',
+                'all_comics/Spider-Girl(2025)/Spider-Girl(2025)#1.pdf',
+                'all_comics/Star Wars Target Vader(2019)/Star Wars Target Vader(2019)#1.pdf',
+                'all_comics/Daredevil(2023)/Daredevil(2023)#1.pdf',
+                'all_comics/Carnage Eddie Brock(2025)/Carnage Eddie Brock(2025)#1.pdf',
+                'all_comics/batman(2025)/batman(2025)#1.pdf',
+                comicFiles[0].path + comicFiles[0].name,
+                comicFiles[1].path + comicFiles[1].name,
+                comicFiles[2].path + comicFiles[2].name,
+                comicFiles[3].path + comicFiles[3].name,
+                comicFiles[4].path + comicFiles[4].name,
+                comicFiles[5].path + comicFiles[5].name,
+            ];
+
+            const loaded = new Set();
+
+            async function loadOne(comic) {
+                if (loaded.has(comic.id)) return;
+                loaded.add(comic.id);
                 const cv = document.querySelector(`.comic-card[data-comic-id="${comic.id}"] canvas.cover`);
-                if (!cv) continue;
+                if (!cv) return;
                 try {
                     const pdf = await loadPDF(comic.filename);
                     comic.pdf = pdf;
                     comic.numPages = pdf.numPages;
                     comic.loaded = true;
-
                     const sizeEl = document.querySelector(`.comic-card[data-comic-id="${comic.id}"] .pagesize`);
                     if (sizeEl) sizeEl.textContent = pdf.numPages + ' pages';
-
-                    // Render first page as cover thumbnail
                     await renderPDFpage(pdf, 1, cv, 0.5);
                 } catch (err) {
                     console.warn('Failed to load cover:', comic.filename, err);
@@ -802,6 +943,15 @@
                     ctx.textAlign = 'center';
                     ctx.fillText('Load failed', cv.width / 2, cv.height / 2);
                 }
+            }
+
+            for (const file of priorityFiles) {
+                const comic = comics.find(c => c.filename === file);
+                if (comic) await loadOne(comic);
+            }
+
+            for (const comic of comics) {
+                await loadOne(comic);
             }
         })();
 
@@ -1253,7 +1403,7 @@
             });
         }
 
-        async function showSpecialFullscreenVideo() {
+        async function showSpecialFullscreenVideo(videoSrc = 'special.mp4') {
             if (!window.videojs) {
                 try {
                     await ensureVideoJSLoaded();
@@ -1264,13 +1414,13 @@
             initFullscreenVideoPlayer();
             if (videoOverlay) videoOverlay.classList.add('visible');
             if (videoPlayer) {
-                videoPlayer.src({ src: 'special.mp4', type: 'video/mp4' });
+                videoPlayer.src({ src: videoSrc, type: 'video/mp4' });
                 videoPlayer.load();
                 videoPlayer.play().catch((err) => {
                     console.warn('Special video play failed:', err);
                 });
             } else if (fullscreenVideo) {
-                fullscreenVideo.src = 'special.mp4';
+                fullscreenVideo.src = videoSrc;
                 fullscreenVideo.load();
                 fullscreenVideo.play().catch((err) => {
                     console.warn('Fallback video play failed:', err);
@@ -1310,6 +1460,7 @@
         const canvas = document.getElementById('renderCanvas');
         const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
         engine.setHardwareScalingLevel(1);
+        BABYLON.SceneLoader.ShowLoadingScreen = false;
 
         const sceneConfig = {
             "lights": [
@@ -1319,7 +1470,7 @@
                 {"name":"PointLight_1782746598960","type":"PointLight","position":[-3.9844,2.2153,1.5756],"diffuse":[1,1,0.9],"intensity":4,"range":6}
             ],
             "cameras": [
-                {"name":"Camera","type":"FreeCamera","position":[-4.2236,1.2364,1.5868],"fov":1.27,"rotation":[0,3.1416,0]}
+                {"name":"Camera","type":"FreeCamera","position":[-4.4770,1.2364,1.5868],"fov":1.3208,"rotation":[0.1048,3.1416,0]}
             ],
             "activeCamera": "Camera"
         };
@@ -1396,69 +1547,116 @@
         }
 
         async function paintComicOnPlane(mesh, comic, scene) {
-            const tex = new BABYLON.DynamicTexture(mesh.name + 'ComicTex', { width: 512, height: 768 }, scene, false, BABYLON.Texture.TRILINEAR_SAMPLINGMODE, undefined, false);
+            const tex = new BABYLON.DynamicTexture(mesh.name + 'ComicTex', { width: 512, height: 768 }, scene, false);
             const ctx = tex.getContext();
-            const state = mesh.metadata.comicPlaneState;
-
-            drawComicCardTexture(ctx, null, comic, false);
-            ctx.fillStyle = '#667';
-            ctx.font = 'bold 22px Segoe UI, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText('Loading cover...', 256, 384);
+            ctx.fillStyle = '#1a1a2e';
+            ctx.fillRect(0, 0, 512, 768);
             tex.update(false);
 
             const mat = new BABYLON.StandardMaterial(mesh.name + 'ComicMat', scene);
             mat.diffuseTexture = tex;
             mat.emissiveTexture = tex;
-            mat.emissiveColor = BABYLON.Color3.White();
-            mat.specularColor = BABYLON.Color3.Black();
+            mat.specularColor = new BABYLON.Color3(0, 0, 0); 
+            mat.emissiveColor = new BABYLON.Color3(1, 1, 1);
             mat.backFaceCulling = false;
             mesh.material = mat;
 
-            state.texture = tex;
-            state.draw = highlighted => {
-                drawComicCardTexture(ctx, state.coverCanvas, comic, highlighted);
-                tex.update(false);
-            };
-
-            try {
-                const pdf = comic.pdf || await loadPDF(comic.filename);
-                comic.pdf = pdf;
-                comic.numPages = pdf.numPages;
-                comic.loaded = true;
-                state.coverCanvas = await renderPDFpage(pdf, 1, document.createElement('canvas'), 0.9);
-                state.draw(false);
-            } catch (err) {
-                ctx.fillStyle = '#101018';
-                ctx.fillRect(0, 0, 512, 768);
-                ctx.fillStyle = '#e94560';
-                ctx.font = 'bold 28px Segoe UI, sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText('Comic failed', 256, 384);
-                tex.update(false);
-                console.warn('Failed to paint comic plane:', mesh.name, comic.filename, err);
+            const cleanSrc = comic.filename.replace(/#/g, '%23').replace(/ /g, '%20');
+            if (comic.filename.match(/\.(png|jpg|jpeg)$/i)) {
+                const img = new Image();
+                img.onload = () => { ctx.drawImage(img, 0, 0, 512, 768); tex.update(false); };
+                img.src = cleanSrc;
+            } else {
+                loadPDF(comic.filename).then(async (pdf) => {
+                    const canvas = document.createElement('canvas');
+                    await renderPDFpage(pdf, 1, canvas, 0.2); 
+                    const img = new Image();
+                    img.onload = () => { ctx.drawImage(img, 0, 0, 512, 768); tex.update(false); };
+                    img.src = canvas.toDataURL('image/jpeg');
+                }).catch(err => console.error('Failed to load cover:', comic.filename, err));
             }
         }
 
         function setupComicPlanes(scene) {
-            const targetNames = [
-                'plane13', 'plane 13', 'plane10', 'plane7', 'plane11',
-                'plane6', 'plane8', 'plane4', 'Plane'
+            const planeMapping = [
+                { plane: 'plane13', thumb: 'Daredevil(2023)#7.png', comicFile: 'all_comics/Daredevil(2023)/Daredevil(2023)#7.pdf', tag: 'DAREDEVIL' },
+                { plane: 'plane10', thumb: 'Spider-Girl(2025)#5.png', comicFile: 'all_comics/Spider-Girl(2025)/Spider-Girl(2025)#5.pdf', tag: 'SPECIAL' },
+                { plane: 'plane7', thumb: 'Thor God of Thunder(2022)#7.png', comicFile: 'all_comics/Thor God of Thunder(2022)/Thor God of Thunder(2022)#7.pdf', tag: 'THOR' },
+                { plane: 'plane11', thumb: 'spidergirl.png', comicFile: 'all_comics/Spider-Girl(2025)/Spider-Girl(2025)#1.pdf', tag: 'SPIDER-GIRL' },
+                { plane: 'plane6', thumb: 'Star Wars Target Vader(2019)#1.png', comicFile: 'all_comics/Star Wars Target Vader(2019)/Star Wars Target Vader(2019)#1.pdf', tag: 'STAR WARS' },
+                { plane: 'plane8', thumb: 'Daredevil(2023)#1.png', comicFile: 'all_comics/Daredevil(2023)/Daredevil(2023)#1.pdf', tag: 'DAREDEVIL' },
+                { plane: 'plane4', thumb: 'Carnage Eddie Brock(2025)#1.png', comicFile: 'all_comics/Carnage Eddie Brock(2025)/Carnage Eddie Brock(2025)#1.pdf', tag: 'CARNAGE' },
+                { plane: 'Plane', thumb: 'batman(2025)#1.png', comicFile: 'all_comics/batman(2025)/batman(2025)#1.pdf', tag: 'BATMAN' }
             ];
-            const uniqueTargets = [...new Set(targetNames.map(normalizeMeshName))];
-            const assignedComics = pickRandomComics(uniqueTargets.length);
+
+            planeMapping.forEach(({ plane, comicFile, thumb, tag }) => {
+                const mesh = findComicPlane(scene, plane);
+                if (!mesh) return;
+
+                let comic = comics.find(c => c.filename === comicFile) || { filename: comicFile, title: tag, category: 'Other', year: '2026' };
+                
+                const baseScaling = mesh.scaling.clone();
+                mesh.isPickable = true;
+                
+                paintComicOnPlane(mesh, { ...comic, filename: thumb }, scene);
+
+                mesh.actionManager = new BABYLON.ActionManager(scene);
+                mesh.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPointerOverTrigger, () => {
+                    canvas.style.cursor = 'pointer';
+                    mesh.scaling.copyFrom(baseScaling.scale(1.1));
+                    const label = document.getElementById('planeComicLabel');
+                    if (label) {
+                        label.innerHTML = `<span class="tag">${tag}</span><br>${comic.title}`;
+                        label.classList.add('visible');
+                    }
+                }));
+                mesh.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPointerOutTrigger, () => {
+                    canvas.style.cursor = '';
+                    mesh.scaling.copyFrom(baseScaling);
+                    const label = document.getElementById('planeComicLabel');
+                    if (label) label.classList.remove('visible');
+                }));
+                mesh.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPickTrigger, () => {
+                    openReader(comic);
+                }));
+            });
+
+            const label = document.getElementById('planeComicLabel');
+            scene.onPointerObservable.add(() => {
+                if (!label) return;
+                label.style.left = scene.pointerX + 'px';
+                label.style.top = scene.pointerY + 'px';
+            }, BABYLON.PointerEventTypes.POINTERMOVE);
+        }
+        
+        function setupComicPlanes_OLD(scene) {
+            // Fixed mapping of 8 planes to 8 specific comics
+            const planeMapping = [
+                { plane: 'plane13', comicFile: 'all_comics/Batman The Devastator(2017)/Batman The Devastator(2017)#1.pdf' },
+                { plane: 'plane10', comicFile: 'vnom.jpg' },
+                { plane: 'plane7', comicFile: 'all_comics/Edenfrost(2023)/Edenfrost(2023)#1.pdf' },
+                { plane: 'plane11', comicFile: 'all_comics/Spider-Girl(2025)/Spider-Girl(2025)#2.pdf' },
+                { plane: 'plane6', comicFile: 'all_comics/batman(2025)/batman(2025)#1.pdf' },
+                { plane: 'plane8', comicFile: 'all_comics/Thor God of Thunder(2022)/Thor God of Thunder(2022)#1.pdf' },
+                { plane: 'plane4', comicFile: 'all_comics/Star Wars Target Vader(2019)/Star Wars Target Vader(2019)#2.pdf' },
+                { plane: 'Plane', comicFile: 'all_comics/Alien 3(2018)/Alien 3(2018)#3.pdf' }
+            ];
+
             const label = document.getElementById('planeComicLabel');
             let hoveredMesh = null;
 
-            uniqueTargets.forEach((normalizedName, index) => {
-                const sourceName = targetNames.find(name => normalizeMeshName(name) === normalizedName);
-                const mesh = findComicPlane(scene, sourceName);
+            planeMapping.forEach(({ plane, comicFile }) => {
+                const mesh = findComicPlane(scene, plane);
                 if (!mesh) {
-                    console.warn('Comic plane not found:', sourceName);
+                    console.warn('Comic plane not found:', plane);
                     return;
                 }
 
-                const comic = assignedComics[index];
+                const comic = comics.find(c => c.filename === comicFile);
+                if (!comic) {
+                    console.warn('Comic not found:', comicFile);
+                    return;
+                }
 
                 const baseScaling = mesh.scaling.clone();
                 mesh.metadata = {
@@ -1467,6 +1665,8 @@
                     comicPlaneState: { baseScaling, coverCanvas: null, draw: null, texture: null }
                 };
                 mesh.isPickable = true;
+                
+                // Load directly
                 paintComicOnPlane(mesh, comic, scene);
 
                 mesh.actionManager = new BABYLON.ActionManager(scene);
@@ -1527,7 +1727,7 @@
                 const laptopVideoSrc = './videoplayback.mp4';
                 const mat = new BABYLON.StandardMaterial('laptopMat', scene);
                 mat.emissiveColor = BABYLON.Color3.White();
-                mat.specularColor = BABYLON.Color3.Black();
+                mat.specularColor = new BABYLON.Color3(0, 0, 0);
                 laptop.material = mat;
 
                 let videoTexture = null;
@@ -1639,7 +1839,7 @@
                             break;
                         default:
                             light = new BABYLON.PointLight(l.name,
-                                new BABYLON.Vector3(l.position[0], l.position[1], l.position[2]), scene);
+                                 new BABYLON.Vector3(l.position[0], l.position[1], l.position[2]), scene);
                     }
                     if (l.diffuse) light.diffuse = new BABYLON.Color3(l.diffuse[0], l.diffuse[1], l.diffuse[2]);
                     if (l.intensity != null) light.intensity = l.intensity;
@@ -1686,14 +1886,24 @@
             return scene;
         }
 
-        // Show overlay immediately, let 3D load in background
-        setTimeout(() => document.getElementById('loading').classList.add('hidden'), 2000);
+        // Show loading.mp4 for 13s while 3D loads in background
+        const loadingEl = document.getElementById('loading');
+        const loadingVideo = document.getElementById('loadingVideo');
+
+        function hideLoading() { loadingEl.classList.add('hidden'); }
+
+        loadingVideo.addEventListener('ended', hideLoading);
+        loadingVideo.load();
+        loadingVideo.play().catch(() => {});
+        setTimeout(hideLoading, 13000);
 
         init().then(scene => {
-            document.getElementById('loading').classList.add('hidden');
             engine.runRenderLoop(() => scene.render());
         }).catch(err => {
-            document.getElementById('loading').innerHTML = '<div style="color:#e94560;font-size:14px;">Error: ' + err.message + '</div>';
+            const errDiv = document.createElement('div');
+            errDiv.style.cssText = 'color:#e94560;font-size:14px;position:absolute;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);padding:10px 20px;border-radius:4px;z-index:201;';
+            errDiv.textContent = 'Error: ' + err.message;
+            loadingEl.appendChild(errDiv);
             console.error(err);
         });
 
