@@ -880,6 +880,7 @@
         function drawCoverOnCanvas(cv, url) {
             return new Promise((resolve) => {
                 const img = new Image();
+                img.crossOrigin = 'anonymous';
                 img.onload = () => {
                     const ctx = cv.getContext('2d');
                     ctx.drawImage(img, 0, 0, cv.width, cv.height);
@@ -894,6 +895,7 @@
             const cvs = document.querySelectorAll(query);
             if (!cvs.length) return;
             const img = new Image();
+            img.crossOrigin = 'anonymous';
             await new Promise((resolve, reject) => {
                 img.onload = resolve;
                 img.onerror = reject;
@@ -1652,7 +1654,9 @@
             const cleanSrc = comic.filename.startsWith('http') ? comic.filename : comicURL(comic.filename);
             if (comic.filename.match(/\.(png|jpg|jpeg)$/i)) {
                 const img = new Image();
+                img.crossOrigin = 'anonymous';
                 img.onload = () => { ctx.drawImage(img, 0, 0, 512, 768); tex.update(false); };
+                img.onerror = () => console.warn('Failed to load plane texture:', cleanSrc);
                 img.src = cleanSrc;
             } else {
                 loadPDF(comic.filename).then(async (pdf) => {
