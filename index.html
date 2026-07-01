@@ -2324,7 +2324,7 @@
             const overlayBg = document.createElement('div');
             overlayBg.className = 'deco-el';
             overlayBg.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:0;';
-            overlayBg.innerHTML = '<img src="' + CDN_URL + 'overlay.png" style="max-width:100%;max-height:100%;object-fit:contain;width:100%;height:100%;pointer-events:none;">';
+            overlayBg.innerHTML = '<img src="' + CDN_URL + 'overlay.png" style="width:100vw;height:100vh;object-fit:cover;display:block;pointer-events:none;">';
             container.appendChild(overlayBg);
 
             elements.forEach(el => {
