@@ -497,6 +497,10 @@
             return COMICS_DIR + filename.replace(/#/g, '%23').replace(/ /g, '%20'); 
         }
 
+        function thumbURL(filename) {
+            return comicURL(filename.replace('.pdf', '.png'));
+        }
+
         async function loadPDF(filename) {
             if (pdfCache.has(filename)) return pdfCache.get(filename);
             const pdf = await pdfjsLib.getDocument(comicURL(filename)).promise;
@@ -814,11 +818,7 @@
                                 for (const comic of seriesComics) {
                                     const cv = grid.querySelector(`.comic-card[data-comic-id="${comic.id}"] canvas.cover`);
                                     if (!cv) continue;
-                                    try {
-                                        const pdf = await loadPDF(comic.filename);
-                                        comic.pdf = pdf;
-                                        await renderPDFpage(pdf, 1, cv, 0.5);
-                                    } catch (err) { /* handle load error */ }
+                                    await drawCoverOnCanvas(cv, thumbURL(comic.filename));
                                 }
                             })();
                         });
@@ -873,28 +873,27 @@
         });
 
         // ─── Load covers & metadata in parallel ───
+        function drawCoverOnCanvas(cv, url) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    const ctx = cv.getContext('2d');
+                    ctx.drawImage(img, 0, 0, cv.width, cv.height);
+                    resolve(true);
+                };
+                img.onerror = () => resolve(false);
+                img.src = url;
+            });
+        }
+
         async function loadComicCover(comic) {
             const cv = document.querySelector(`.comic-card[data-comic-id="${comic.id}"] canvas.cover`);
             if (!cv) return;
-            try {
-                const pdf = await loadPDF(comic.filename);
-                comic.pdf = pdf;
-                comic.numPages = pdf.numPages;
-                comic.loaded = true;
-
-                const sizeEl = document.querySelector(`.comic-card[data-comic-id="${comic.id}"] .pagesize`);
-                if (sizeEl) sizeEl.textContent = pdf.numPages + ' pages';
-
-                await renderPDFpage(pdf, 1, cv, 0.5);
-            } catch (err) {
-                console.warn('Failed to load cover:', comic.filename, err);
+            const ok = await drawCoverOnCanvas(cv, thumbURL(comic.filename));
+            if (!ok) {
                 const ctx = cv.getContext('2d');
                 ctx.fillStyle = '#1a1a2e';
                 ctx.fillRect(0, 0, cv.width, cv.height);
-                ctx.fillStyle = '#445';
-                ctx.font = '12px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText('Load failed', cv.width / 2, cv.height / 2);
             }
         }
 
@@ -923,23 +922,11 @@
                 loaded.add(comic.id);
                 const cv = document.querySelector(`.comic-card[data-comic-id="${comic.id}"] canvas.cover`);
                 if (!cv) return;
-                try {
-                    const pdf = await loadPDF(comic.filename);
-                    comic.pdf = pdf;
-                    comic.numPages = pdf.numPages;
-                    comic.loaded = true;
-                    const sizeEl = document.querySelector(`.comic-card[data-comic-id="${comic.id}"] .pagesize`);
-                    if (sizeEl) sizeEl.textContent = pdf.numPages + ' pages';
-                    await renderPDFpage(pdf, 1, cv, 0.5);
-                } catch (err) {
-                    console.warn('Failed to load cover:', comic.filename, err);
+                const ok = await drawCoverOnCanvas(cv, thumbURL(comic.filename));
+                if (!ok) {
                     const ctx = cv.getContext('2d');
                     ctx.fillStyle = '#1a1a2e';
                     ctx.fillRect(0, 0, cv.width, cv.height);
-                    ctx.fillStyle = '#445';
-                    ctx.font = '12px sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.fillText('Load failed', cv.width / 2, cv.height / 2);
                 }
             }
 
