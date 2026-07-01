@@ -489,6 +489,7 @@
     <script>
         // ────────────────────────────────────────────── PDF COMICS ENGINE
         const CDN_URL = 'https://media.githubusercontent.com/media/aakash723/dailybugle/main/';
+        const RAW_URL = 'https://raw.githubusercontent.com/aakash723/dailybugle/main/';
         const COMICS_DIR = CDN_URL;
         const pdfCache = new Map();
 
@@ -498,7 +499,7 @@
         }
 
         function thumbURL(filename) {
-            return comicURL(filename.replace('.pdf', '.png'));
+            return RAW_URL + filename.replace('.pdf', '.png').replace(/#/g, '%23').replace(/ /g, '%20');
         }
 
         async function loadPDF(filename) {
