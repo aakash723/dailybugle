@@ -1784,6 +1784,8 @@
                 const tex = new BABYLON.Texture(src, scene);
                 tex.invertY = false;
                 tex.hasAlpha = true;
+                tex.vScale = -1;
+                tex.vOffset = 1;
                 mat.diffuseTexture = tex;
                 mat.emissiveTexture = tex;
             } else {
@@ -1819,8 +1821,6 @@
             planeMapping.forEach(({ plane, comicFile, thumb, tag }) => {
                 const mesh = findComicPlane(scene, plane);
                 if (!mesh) return;
-
-                mesh.rotation.y += Math.PI;
 
                 let comic = comics.find(c => c.filename === comicFile) || { filename: comicFile, title: tag, category: 'Other', year: '2026' };
                 
