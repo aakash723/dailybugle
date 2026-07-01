@@ -1381,14 +1381,14 @@
                 playbackRates: [0.5, 1, 1.5, 2],
                 controlBar: { fullscreenToggle: true }
             });
-            videoPlayer.src({ src: 'special.mp4', type: 'video/mp4' });
+            videoPlayer.src({ src: CDN_URL + 'special.mp4', type: 'video/mp4' });
             videoPlayer.on('ended', hideSpecialFullscreenVideo);
             videoPlayer.on('error', () => {
                 console.warn('VideoJS error:', videoPlayer.error());
             });
         }
 
-        async function showSpecialFullscreenVideo(videoSrc = 'special.mp4') {
+        async function showSpecialFullscreenVideo(videoSrc = CDN_URL + 'special.mp4') {
             if (!window.videojs) {
                 try {
                     await ensureVideoJSLoaded();
