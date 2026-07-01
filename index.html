@@ -2153,7 +2153,7 @@
             localStorage.setItem('deco_accounts', JSON.stringify(accounts));
         }
 
-        if (localStorage.getItem('deco_name')) {
+        if (isMobile || localStorage.getItem('deco_name')) {
             signupOverlay.classList.remove('visible');
             proceedToApp();
         } else {
