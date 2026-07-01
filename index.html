@@ -2336,16 +2336,20 @@
             const elements = [
                 { x: 740, y: 22, w: 182, h: 175, spin: 1, src: CDN_URL + '_collage__spiderman__marvel__marvelcomics-removebg-preview.png' },
                 { x: 779, y: 71, w: 97, h: 67, spin: 0, src: CDN_URL + 'Screenshot 2026-06-30 173847.png' },
-                { x: 1113, y: 1, w: 193, h: 169, spin: 0, src: 'Adjusted-7.jpg' }
+                { w: 290, h: 254, right: 0, top: 0, spin: 0, src: 'Adjusted-7.jpg' }
             ];
             elements.forEach(el => {
                 const div = document.createElement('div');
                 div.className = 'deco-el' + (el.spin ? ' spin' : '');
-                const leftPct = ((el.x - overlayLeft) / overlayW) * 100;
-                const topPct = (el.y / refH) * 100;
                 const wPct = (el.w / overlayW) * 100;
                 const hPct = (el.h / refH) * 100;
-                div.style.cssText = `left:${leftPct}%;top:${topPct}%;width:${wPct}%;height:${hPct}%;`;
+                if (el.right !== undefined) {
+                    div.style.cssText = `right:${el.right}%;top:${el.top}%;width:${wPct}%;height:${hPct}%;`;
+                } else {
+                    const leftPct = ((el.x - overlayLeft) / overlayW) * 100;
+                    const topPct = (el.y / refH) * 100;
+                    div.style.cssText = `left:${leftPct}%;top:${topPct}%;width:${wPct}%;height:${hPct}%;`;
+                }
                 const inner = el.spin ? '<div class="spin-wrap">' : '';
                 const innerEnd = el.spin ? '</div>' : '';
                 div.innerHTML = inner + '<img src="' + el.src + '" draggable="false">' + innerEnd;
