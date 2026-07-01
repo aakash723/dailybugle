@@ -459,11 +459,23 @@
             text-align: center; position: relative; z-index: 1;
         }
         #signupOverlay .signup-container h1 {
-            font-size: 32px; color: #fff; margin-bottom: 8px;
+            font-size: 28px; color: #fff; margin-bottom: 4px;
         }
-        #signupOverlay .signup-container p {
-            font-size: 14px; color: #667; margin-bottom: 28px;
+        #signupOverlay .signup-container p.sub {
+            font-size: 14px; color: #667; margin-bottom: 20px;
         }
+        #signupOverlay .auth-tabs {
+            display: flex; gap: 0; margin-bottom: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        #signupOverlay .auth-tabs button {
+            flex: 1; background: none; border: none; color: #667;
+            font-size: 13px; font-weight: 600; padding: 10px;
+            cursor: pointer; border-bottom: 2px solid transparent;
+            transition: 0.15s; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        #signupOverlay .auth-tabs button.active { color: #e94560; border-bottom-color: #e94560; }
+        #signupOverlay .form-group.hidden { display: none; }
         #signupOverlay .form-group {
             text-align: left; margin-bottom: 16px;
         }
@@ -487,11 +499,6 @@
         }
         #signupOverlay .btn-submit:hover { background: #d13850; transform: translateY(-1px); }
         #signupOverlay .btn-submit:disabled { background: #445; cursor: not-allowed; transform: none; }
-        #signupOverlay .skip-link {
-            margin-top: 20px; font-size: 13px; color: #667;
-        }
-        #signupOverlay .skip-link a { color: #e94560; text-decoration: none; font-weight: 600; cursor: pointer; }
-        #signupOverlay .skip-link a:hover { text-decoration: underline; }
         #signupOverlay .status-msg {
             margin-top: 12px; font-size: 13px; display: none; padding: 10px; border-radius: 6px;
         }
@@ -525,10 +532,14 @@
     <div id="signupOverlay">
         <div class="bg-deco"><div class="circle c1"></div><div class="circle c2"></div></div>
         <div class="signup-container">
-            <h1>Create Account</h1>
-            <p>Join the ultimate digital comic library</p>
-            <form id="signupForm">
-                <div class="form-group">
+            <h1>World Comics</h1>
+            <p class="sub">Your digital comic library</p>
+            <div class="auth-tabs">
+                <button class="active" data-auth="signup">Create Account</button>
+                <button data-auth="signin">Sign In</button>
+            </div>
+            <form id="authForm">
+                <div class="form-group" id="nameGroup">
                     <label for="fullName">Full Name</label>
                     <input type="text" id="fullName" name="fullName" placeholder="Peter Parker" required>
                 </div>
@@ -540,14 +551,13 @@
                     <label for="password">Password</label>
                     <input type="password" id="password" name="password" placeholder="••••••••" required>
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="favGroup">
                     <label for="favoriteComic">Favorite Comic (Optional)</label>
                     <input type="text" id="favoriteComic" name="favoriteComic" placeholder="Amazing Spider-Man">
                 </div>
-                <button type="submit" class="btn-submit" id="signupBtn">Sign Up</button>
+                <button type="submit" class="btn-submit" id="authBtn">Create Account</button>
             </form>
-            <div id="signupStatus" class="status-msg"></div>
-            <div class="skip-link">Already a member? <a id="skipSignup">Enter Library</a></div>
+            <div id="authStatus" class="status-msg"></div>
         </div>
     </div>
     <div id="decoContainer"></div>
@@ -2115,14 +2125,13 @@
         window.addEventListener('resize', () => engine.resize());
         }
 
-        // ─── Signup gate: check if user has signed up ───
+        // ─── Auth gate: sign up or sign in ───
         const signupOverlay = document.getElementById('signupOverlay');
         const loadingEl = document.getElementById('loading');
         const loadingVideo = document.getElementById('loadingVideo');
         function hideLoading() { loadingEl.classList.add('hidden'); }
 
         function proceedToApp() {
-            signupOverlay.classList.remove('visible');
             loadingEl.classList.remove('hidden');
             loadingVideo.addEventListener('ended', hideLoading);
             loadingVideo.src = CDN_URL + 'loding.mp4';
@@ -2131,41 +2140,114 @@
             setTimeout(hideLoading, 13000);
         }
 
+        function saveSession(name, email, favorite) {
+            localStorage.setItem('deco_name', name);
+            localStorage.setItem('deco_email', email);
+            localStorage.setItem('deco_favorite', favorite || 'None');
+        }
+
+        function getAccounts() {
+            try { return JSON.parse(localStorage.getItem('deco_accounts') || '{}'); } catch { return {}; }
+        }
+        function saveAccounts(accounts) {
+            localStorage.setItem('deco_accounts', JSON.stringify(accounts));
+        }
+
         if (localStorage.getItem('deco_name')) {
+            signupOverlay.classList.remove('visible');
             proceedToApp();
         } else {
             signupOverlay.classList.add('visible');
             loadingEl.classList.add('hidden');
         }
 
-        // Signup form handler
-        const signupForm = document.getElementById('signupForm');
-        const signupBtn = document.getElementById('signupBtn');
-        const signupStatus = document.getElementById('signupStatus');
-        signupForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            signupBtn.disabled = true;
-            signupBtn.textContent = 'Creating account...';
-            signupStatus.textContent = ''; signupStatus.className = 'status-msg';
+        // Auth mode switching
+        let authMode = 'signup';
+        const authTabs = document.querySelectorAll('#signupOverlay .auth-tabs button');
+        const nameGroup = document.getElementById('nameGroup');
+        const favGroup = document.getElementById('favGroup');
+        const authBtn = document.getElementById('authBtn');
+        const authStatus = document.getElementById('authStatus');
 
-            const data = Object.fromEntries(new FormData(signupForm).entries());
-            try {
-                await fetch('https://script.google.com/macros/s/AKfycbz9Gh8LxAcqvy2KLk_5cybq5Z-b92xFv6xGDksHyM63LrMQj5WTxObEDxS4B3rtPYVKuw/exec', {
-                    method: 'POST', mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-            } catch (_) { /* no-cors, can't read response */ }
-            localStorage.setItem('deco_name', data.fullName);
-            localStorage.setItem('deco_email', data.email);
-            localStorage.setItem('deco_favorite', data.favoriteComic || 'None');
-            signupStatus.textContent = 'Welcome! Loading library...'; signupStatus.className = 'status-msg success';
-            setTimeout(() => { signupBtn.disabled = false; signupBtn.textContent = 'Sign Up'; proceedToApp(); }, 800);
+        authTabs.forEach(btn => {
+            btn.addEventListener('click', () => {
+                authTabs.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                authMode = btn.dataset.auth;
+                authStatus.textContent = ''; authStatus.className = 'status-msg';
+                if (authMode === 'signup') {
+                    nameGroup.classList.remove('hidden');
+                    favGroup.classList.remove('hidden');
+                    authBtn.textContent = 'Create Account';
+                    document.getElementById('fullName').required = true;
+                } else {
+                    nameGroup.classList.add('hidden');
+                    favGroup.classList.add('hidden');
+                    authBtn.textContent = 'Sign In';
+                    document.getElementById('fullName').required = false;
+                }
+            });
         });
 
-        document.getElementById('skipSignup').addEventListener('click', (e) => {
+        // Auth form handler
+        document.getElementById('authForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            proceedToApp();
+            authBtn.disabled = true;
+            authStatus.textContent = ''; authStatus.className = 'status-msg';
+
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+
+            if (authMode === 'signup') {
+                // Create account
+                const name = document.getElementById('fullName').value.trim();
+                const favorite = document.getElementById('favoriteComic').value.trim();
+                authBtn.textContent = 'Creating account...';
+
+                const accounts = getAccounts();
+                if (accounts[email]) {
+                    authStatus.textContent = 'An account with this email already exists. Please sign in.'; authStatus.className = 'status-msg error';
+                    authBtn.disabled = false; authBtn.textContent = 'Create Account';
+                    return;
+                }
+                accounts[email] = { password, name, favorite };
+                saveAccounts(accounts);
+                saveSession(name, email, favorite);
+
+                try {
+                    await fetch('https://script.google.com/macros/s/AKfycbz9Gh8LxAcqvy2KLk_5cybq5Z-b92xFv6xGDksHyM63LrMQj5WTxObEDxS4B3rtPYVKuw/exec', {
+                        method: 'POST', mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ fullName: name, email, password, favoriteComic: favorite })
+                    });
+                } catch (_) {}
+
+                authStatus.textContent = 'Account created! Loading...'; authStatus.className = 'status-msg success';
+                authBtn.disabled = false; authBtn.textContent = 'Create Account';
+                setTimeout(() => { signupOverlay.classList.remove('visible'); proceedToApp(); }, 600);
+
+            } else {
+                // Sign in
+                authBtn.textContent = 'Signing in...';
+                const accounts = getAccounts();
+                const account = accounts[email];
+
+                if (!account) {
+                    authStatus.textContent = 'No account found with this email. Please create an account.'; authStatus.className = 'status-msg error';
+                    authBtn.disabled = false; authBtn.textContent = 'Sign In';
+                    return;
+                }
+                if (account.password !== password) {
+                    authStatus.textContent = 'Incorrect password. Please try again.'; authStatus.className = 'status-msg error';
+                    authBtn.disabled = false; authBtn.textContent = 'Sign In';
+                    return;
+                }
+
+                saveSession(account.name, email, account.favorite);
+                authStatus.textContent = 'Welcome back! Loading...'; authStatus.className = 'status-msg success';
+                authBtn.disabled = false; authBtn.textContent = 'Sign In';
+                setTimeout(() => { signupOverlay.classList.remove('visible'); proceedToApp(); }, 600);
+            }
         });
 
         // ────────────────────────────────────────────── PROFILE / TODO
