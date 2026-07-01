@@ -2123,6 +2123,7 @@
 
         function proceedToApp() {
             signupOverlay.classList.remove('visible');
+            loadingEl.classList.remove('hidden');
             loadingVideo.addEventListener('ended', hideLoading);
             loadingVideo.src = CDN_URL + 'loding.mp4';
             loadingVideo.load();
